@@ -3,6 +3,7 @@ export interface VehicleSnapshot {
   shiftState: string;
   charging: boolean;
   pluggedIn: boolean;
+  chargingState: string;
   energyAdded: number;
   odometer: number;
   chargerPower: number;
@@ -55,11 +56,25 @@ export async function fetchVehicleSnapshot(entityPrefix: string): Promise<Vehicl
       fetchState(`sensor.${entityPrefix}_charger_power`),
     ]);
 
+  // Not its own entity — the alandtse/tesla integration surfaces the raw
+  // Tesla charging_state (Charging/Complete/Disconnected/...) as an
+  // attribute on binary_sensor.<car>_charger rather than a sensor of its
+  // own, so it rides along with the existing "charger" fetch.
+  const chargingState = charger.attributes.charging_state;
+  if (typeof chargingState !== "string") {
+    // Guards the same silent-bad-write failure mode as the unavailable/
+    // unknown check in fetchState — a missing attribute would otherwise
+    // coerce to the literal string "undefined" and never match a known
+    // charging_state value again for the rest of the trip.
+    throw new Error(`HA entity binary_sensor.${entityPrefix}_charger is missing charging_state`);
+  }
+
   return {
     batteryLevel: Number(battery.state),
     charging: charging.state === "on",
     energyAdded: Number(energyAdded.state),
     pluggedIn: charger.state === "on",
+    chargingState,
     odometer: Number(odometer.state),
     shiftState: shiftState.state,
     chargerPower: Number(chargerPower.state),

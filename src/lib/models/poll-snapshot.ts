@@ -11,6 +11,7 @@ export interface PollSnapshotDoc {
   shiftState: string;
   charging: boolean;
   pluggedIn: boolean;
+  chargingState: string;
   energyAdded: number;
   odometer: number;
   chargerPower: number;
@@ -27,6 +28,7 @@ export interface PollSnapshot {
   shiftState: string;
   charging: boolean;
   pluggedIn: boolean;
+  chargingState: string;
   energyAdded: number;
   odometer: number;
   chargerPower: number;
@@ -44,6 +46,7 @@ function toPollSnapshot(doc: PollSnapshotDoc): PollSnapshot {
     shiftState: doc.shiftState,
     charging: doc.charging,
     pluggedIn: doc.pluggedIn,
+    chargingState: doc.chargingState,
     energyAdded: doc.energyAdded,
     odometer: doc.odometer,
     chargerPower: doc.chargerPower,
@@ -70,6 +73,7 @@ export async function createPollSnapshot(
     shiftState: input.shiftState,
     charging: input.charging,
     pluggedIn: input.pluggedIn,
+    chargingState: input.chargingState,
     energyAdded: input.energyAdded,
     odometer: input.odometer,
     chargerPower: input.chargerPower,
@@ -78,4 +82,13 @@ export async function createPollSnapshot(
   };
   await collection.insertOne(doc);
   return toPollSnapshot(doc);
+}
+
+export async function listPollSnapshotsByTrip(tripId: string): Promise<PollSnapshot[]> {
+  const collection = await getPollSnapshotsCollection();
+  const docs = await collection
+    .find({ tripId: new ObjectId(tripId) })
+    .sort({ polledAt: 1, _id: 1 })
+    .toArray();
+  return docs.map(toPollSnapshot);
 }

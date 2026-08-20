@@ -18,7 +18,9 @@ describe("fetchVehicleSnapshot", () => {
       if (url.endsWith("sensor.electra_battery")) return haResponse("77");
       if (url.endsWith("binary_sensor.electra_charging")) return haResponse("on");
       if (url.endsWith("sensor.electra_energy_added")) return haResponse("12.5");
-      if (url.endsWith("binary_sensor.electra_charger")) return haResponse("off");
+      if (url.endsWith("binary_sensor.electra_charger")) {
+        return haResponse("off", { charging_state: "Disconnected" });
+      }
       if (url.endsWith("sensor.electra_odometer")) return haResponse("15230");
       if (url.endsWith("sensor.electra_shift_state")) return haResponse("D");
       if (url.endsWith("device_tracker.electra_location_tracker")) {
@@ -36,6 +38,7 @@ describe("fetchVehicleSnapshot", () => {
       batteryLevel: 77,
       charging: true,
       pluggedIn: false,
+      chargingState: "Disconnected",
       energyAdded: 12.5,
       odometer: 15230,
       shiftState: "D",
@@ -56,6 +59,30 @@ describe("fetchVehicleSnapshot", () => {
     const { fetchVehicleSnapshot } = await import("./ha");
 
     await expect(fetchVehicleSnapshot("electra")).rejects.toThrow(/Missing required env var/);
+  });
+
+  it("throws when the charger's charging_state attribute is missing", async () => {
+    vi.stubEnv("HA_BASE_URL", "https://ha.example.com");
+    vi.stubEnv("HA_LONG_LIVED_TOKEN", "test-token");
+
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith("sensor.electra_battery")) return haResponse("77");
+      if (url.endsWith("binary_sensor.electra_charging")) return haResponse("on");
+      if (url.endsWith("sensor.electra_energy_added")) return haResponse("12.5");
+      if (url.endsWith("binary_sensor.electra_charger")) return haResponse("off"); // no charging_state attribute
+      if (url.endsWith("sensor.electra_odometer")) return haResponse("15230");
+      if (url.endsWith("sensor.electra_shift_state")) return haResponse("D");
+      if (url.endsWith("device_tracker.electra_location_tracker")) {
+        return haResponse("home", { latitude: 44.5, longitude: 11.3 });
+      }
+      if (url.endsWith("sensor.electra_charger_power")) return haResponse("0");
+      throw new Error(`unexpected url: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { fetchVehicleSnapshot } = await import("./ha");
+
+    await expect(fetchVehicleSnapshot("electra")).rejects.toThrow(/missing charging_state/);
   });
 
   it("throws when HA responds with a non-ok status", async () => {

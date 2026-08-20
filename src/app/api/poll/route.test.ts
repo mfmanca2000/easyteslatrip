@@ -4,6 +4,7 @@ const getAnyActiveTrip = vi.fn();
 const getVehicleById = vi.fn();
 const createPollSnapshot = vi.fn();
 const fetchVehicleSnapshot = vi.fn();
+const syncTripDerivedData = vi.fn();
 
 vi.mock("@/lib/models/trip", () => ({
   getAnyActiveTrip: (...args: unknown[]) => getAnyActiveTrip(...args),
@@ -16,6 +17,9 @@ vi.mock("@/lib/models/poll-snapshot", () => ({
 }));
 vi.mock("@/lib/ha", () => ({
   fetchVehicleSnapshot: (...args: unknown[]) => fetchVehicleSnapshot(...args),
+}));
+vi.mock("@/lib/domain/sync-trip-derived-data", () => ({
+  syncTripDerivedData: (...args: unknown[]) => syncTripDerivedData(...args),
 }));
 
 const TRIP_ID = "507f1f77bcf86cd799439099";
@@ -31,6 +35,7 @@ describe("GET/HEAD /api/poll", () => {
     getVehicleById.mockReset();
     createPollSnapshot.mockReset();
     fetchVehicleSnapshot.mockReset();
+    syncTripDerivedData.mockReset();
     vi.stubEnv("POLL_TRIGGER_SECRET", "shh");
   });
 
@@ -85,6 +90,7 @@ describe("GET/HEAD /api/poll", () => {
       shiftState: "D",
       charging: false,
       pluggedIn: false,
+      chargingState: "Disconnected",
       energyAdded: 0,
       odometer: 15230,
       chargerPower: 0,
@@ -104,6 +110,44 @@ describe("GET/HEAD /api/poll", () => {
       vehicleId: VEHICLE_ID,
       ...snapshotFields,
     });
+    expect(syncTripDerivedData).toHaveBeenCalledWith(TRIP_ID, VEHICLE_ID);
+  });
+
+  it("still returns 200 and keeps the poll snapshot when derived-data sync fails", async () => {
+    getAnyActiveTrip.mockResolvedValue({
+      id: TRIP_ID,
+      vehicleId: VEHICLE_ID,
+      startedAt: "s",
+      endedAt: null,
+    });
+    getVehicleById.mockResolvedValue({
+      id: VEHICLE_ID,
+      name: "Electra",
+      entityPrefix: "electra",
+      createdAt: "c",
+    });
+    fetchVehicleSnapshot.mockResolvedValue({
+      batteryLevel: 77,
+      shiftState: "D",
+      charging: false,
+      pluggedIn: false,
+      chargingState: "Disconnected",
+      energyAdded: 0,
+      odometer: 15230,
+      chargerPower: 0,
+      latitude: 44.5,
+      longitude: 11.3,
+    });
+    createPollSnapshot.mockResolvedValue({ id: "snap1" });
+    syncTripDerivedData.mockRejectedValue(new Error("Mapbox request failed: 500"));
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { GET } = await import("./route");
+    const response = await GET(request({ authorization: "Bearer shh" }));
+
+    expect(response.status).toBe(200);
+    expect(createPollSnapshot).toHaveBeenCalledOnce();
+    consoleErrorSpy.mockRestore();
   });
 
   it("exposes the same handler for HEAD requests", async () => {
