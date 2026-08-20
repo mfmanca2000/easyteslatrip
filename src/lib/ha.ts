@@ -22,7 +22,7 @@ async function fetchState(entityId: string): Promise<HaState> {
     throw new Error("Missing required env var: HA_BASE_URL or HA_LONG_LIVED_TOKEN");
   }
 
-  const response = await fetch(`${baseUrl}/api/states/${entityId}`, {
+  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/states/${entityId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
