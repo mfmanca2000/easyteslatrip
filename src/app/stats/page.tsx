@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import styles from "./page.module.css";
 
 interface Vehicle {
@@ -42,10 +42,13 @@ function formatDuration(minutes: number): string {
   return h > 0 ? `${h}h${String(m).padStart(2, "0")}` : `${m} min`;
 }
 
-export default function StatsPage() {
+function StatsPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
+    () => searchParams.get("vehicleId"),
+  );
   const [stats, setStats] = useState<VehicleStats | null>(null);
   // Tracks which vehicle `stats` belongs to, so a slow response for a
   // previously-selected vehicle can never be rendered under a newer one.
@@ -161,5 +164,13 @@ export default function StatsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function StatsPage() {
+  return (
+    <Suspense>
+      <StatsPageContent />
+    </Suspense>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 
 interface Vehicle {
@@ -51,6 +52,7 @@ async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
 }
 
 export default function TripListPage() {
+  const router = useRouter();
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [trips, setTrips] = useState<Trip[] | null>(null);
@@ -125,21 +127,16 @@ export default function TripListPage() {
     <div className={styles.page}>
       <div className={`${styles.appbar} ${styles.container}`} style={{ maxWidth: "none" }}>
         <h1>Trips</h1>
-        <div className={styles.appbarActions}>
-          <Link href="/stats" className={styles.statsButton} aria-label="All-time stats">
-            📊
-          </Link>
-          <button
-            type="button"
-            className={styles.startButton}
-            disabled={busy || !selectedVehicleId || !!activeTrip}
-            onClick={handleStart}
-            aria-label="Start trip"
-            title={activeTrip ? "A trip is already in progress" : "Start trip"}
-          >
-            +
-          </button>
-        </div>
+        <button
+          type="button"
+          className={styles.startButton}
+          disabled={busy || !selectedVehicleId || !!activeTrip}
+          onClick={handleStart}
+          aria-label="Start trip"
+          title={activeTrip ? "A trip is already in progress" : "Start trip"}
+        >
+          +
+        </button>
       </div>
 
       <div className={styles.container}>
@@ -150,16 +147,24 @@ export default function TripListPage() {
         ) : (
           <>
             <div className={styles.vehtabs}>
-              {vehicles.map((vehicle) => (
-                <button
-                  key={vehicle.id}
-                  type="button"
-                  className={`${styles.tab} ${vehicle.id === selectedVehicleId ? styles.tabActive : ""}`}
-                  onClick={() => setSelectedVehicleId(vehicle.id)}
-                >
-                  🚗 {vehicle.name}
-                </button>
-              ))}
+              {vehicles.map((vehicle) => {
+                const isSelected = vehicle.id === selectedVehicleId;
+                return (
+                  <button
+                    key={vehicle.id}
+                    type="button"
+                    className={`${styles.tab} ${isSelected ? styles.tabActive : ""}`}
+                    onClick={() =>
+                      isSelected
+                        ? router.push(`/stats?vehicleId=${vehicle.id}`)
+                        : setSelectedVehicleId(vehicle.id)
+                    }
+                    title={isSelected ? "View all-time stats" : `Switch to ${vehicle.name}`}
+                  >
+                    🚗 {vehicle.name}
+                  </button>
+                );
+              })}
             </div>
 
             {error && <p className={styles.error}>{error}</p>}
