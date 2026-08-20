@@ -27,3 +27,8 @@ export async function replaceRouteLog(tripId: string, points: RoutePoint[]): Pro
     { upsert: true },
   );
 }
+
+export async function deleteRouteLog(tripId: string): Promise<void> {
+  const collection = await getRouteLogsCollection();
+  await collection.deleteOne({ tripId: new ObjectId(tripId) });
+}

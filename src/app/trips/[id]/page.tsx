@@ -338,6 +338,8 @@ export default function TripDetailPage() {
   const [detail, setDetail] = useState<TripDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingLegId, setEditingLegId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -397,6 +399,19 @@ export default function TripDetailPage() {
     setEditingLegId(null);
   }
 
+  async function handleDelete() {
+    if (!window.confirm("Delete this trip? This cannot be undone.")) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await fetchJson(`/api/trips/${params.id}`, { method: "DELETE" });
+      router.push("/");
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete trip");
+      setDeleting(false);
+    }
+  }
+
   if (error) {
     return (
       <div className={styles.page}>
@@ -428,9 +443,20 @@ export default function TripDetailPage() {
           <div className={styles.titleSub}>{formatDateRange(trip)}</div>
         </div>
         {vehicle && <div className={styles.vehTag}>🚗 {vehicle.name}</div>}
+        <button
+          type="button"
+          className={styles.deleteButton}
+          disabled={deleting}
+          onClick={handleDelete}
+          aria-label="Delete trip"
+          title="Delete trip"
+        >
+          🗑
+        </button>
       </div>
 
       <div className={styles.container}>
+        {deleteError && <p className={styles.error}>{deleteError}</p>}
         <TripMap routeLog={detail.routeLog} pins={mapPins} />
 
         <h2 className={styles.sectiontitle}>Battery over trip</h2>

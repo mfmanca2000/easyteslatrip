@@ -84,6 +84,19 @@
   overflow: hidden;
 }
 
+.tripRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tripLink {
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
 .tripActive {
   border-color: var(--accent);
 }
@@ -151,6 +164,31 @@
 
 .startButton:disabled {
   opacity: 0.6;
+  cursor: default;
+}
+
+.deleteButton {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deleteButton:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.deleteButton:disabled {
+  opacity: 0.5;
   cursor: default;
 }
 

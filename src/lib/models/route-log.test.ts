@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findOne = vi.fn();
 const updateOne = vi.fn();
+const deleteOne = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   getDb: async () => ({
     collection: () => ({
       findOne,
       updateOne,
+      deleteOne,
     }),
   }),
 }));
@@ -51,5 +53,16 @@ describe("replaceRouteLog", () => {
       { $set: { points } },
       { upsert: true },
     );
+  });
+});
+
+describe("deleteRouteLog", () => {
+  it("deletes the route log for the trip", async () => {
+    deleteOne.mockResolvedValue({ acknowledged: true });
+    const { deleteRouteLog } = await import("./route-log");
+
+    await deleteRouteLog(TRIP_ID);
+
+    expect(deleteOne).toHaveBeenCalledWith({ tripId: expect.anything() });
   });
 });

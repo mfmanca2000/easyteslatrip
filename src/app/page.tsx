@@ -171,6 +171,20 @@ function TripListPageContent() {
     }
   }
 
+  async function handleDelete(tripId: string) {
+    if (!window.confirm("Delete this trip? This cannot be undone.")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await fetchJson(`/api/trips/${tripId}`, { method: "DELETE" });
+      await refreshTrips();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete trip");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const activeTrip = trips?.find((trip) => trip.endedAt === null) ?? null;
   const pastTrips = trips?.filter((trip) => trip.endedAt !== null) ?? [];
 
@@ -249,12 +263,24 @@ function TripListPageContent() {
                   <p className={styles.empty}>No past trips yet.</p>
                 ) : (
                   pastTrips.map((trip) => (
-                    <Link key={trip.id} href={`/trips/${trip.id}`} className={styles.trip}>
-                      <div className={styles.tripHead}>
-                        <div className={styles.tripName}>Trip</div>
-                        <div className={styles.tripDates}>{formatClosed(trip)}</div>
-                      </div>
-                    </Link>
+                    <div key={trip.id} className={`${styles.trip} ${styles.tripRow}`}>
+                      <Link href={`/trips/${trip.id}`} className={styles.tripLink}>
+                        <div className={styles.tripHead}>
+                          <div className={styles.tripName}>Trip</div>
+                          <div className={styles.tripDates}>{formatClosed(trip)}</div>
+                        </div>
+                      </Link>
+                      <button
+                        type="button"
+                        className={styles.deleteButton}
+                        disabled={busy}
+                        onClick={() => handleDelete(trip.id)}
+                        aria-label="Delete trip"
+                        title="Delete trip"
+                      >
+                        🗑
+                      </button>
+                    </div>
                   ))
                 )}
               </>

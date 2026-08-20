@@ -64,6 +64,21 @@ describe("saveChargeSessions", () => {
   });
 });
 
+describe("deleteChargeSessionsByTrip", () => {
+  beforeEach(() => {
+    deleteMany.mockReset();
+    deleteMany.mockResolvedValue({ acknowledged: true });
+  });
+
+  it("deletes all sessions scoped to the trip", async () => {
+    const { deleteChargeSessionsByTrip } = await import("./charge-session");
+
+    await deleteChargeSessionsByTrip(TRIP_ID);
+
+    expect(deleteMany).toHaveBeenCalledWith({ tripId: expect.anything() });
+  });
+});
+
 describe("listChargeSessionsByTrip", () => {
   it("returns sessions sorted oldest-first", async () => {
     sort.mockReturnValue({

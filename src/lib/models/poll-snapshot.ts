@@ -92,3 +92,8 @@ export async function listPollSnapshotsByTrip(tripId: string): Promise<PollSnaps
     .toArray();
   return docs.map(toPollSnapshot);
 }
+
+export async function deletePollSnapshotsByTrip(tripId: string): Promise<void> {
+  const collection = await getPollSnapshotsCollection();
+  await collection.deleteMany({ tripId: new ObjectId(tripId) });
+}

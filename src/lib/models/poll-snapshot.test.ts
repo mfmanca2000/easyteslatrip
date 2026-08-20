@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const insertOne = vi.fn();
 const sort = vi.fn();
 const find = vi.fn(() => ({ sort }));
+const deleteMany = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   getDb: async () => ({
     collection: () => ({
       insertOne,
       find,
+      deleteMany,
     }),
   }),
 }));
@@ -80,5 +82,16 @@ describe("listPollSnapshotsByTrip", () => {
 
     expect(snapshots).toHaveLength(1);
     expect(sort).toHaveBeenCalledWith({ polledAt: 1, _id: 1 });
+  });
+});
+
+describe("deletePollSnapshotsByTrip", () => {
+  it("deletes all snapshots scoped to the trip", async () => {
+    deleteMany.mockResolvedValue({ acknowledged: true });
+    const { deletePollSnapshotsByTrip } = await import("./poll-snapshot");
+
+    await deletePollSnapshotsByTrip(TRIP_ID);
+
+    expect(deleteMany).toHaveBeenCalledWith({ tripId: expect.anything() });
   });
 });

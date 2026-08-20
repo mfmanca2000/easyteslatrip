@@ -7,6 +7,7 @@ import { listChargeSessionsByTrip } from "@/lib/models/charge-session";
 import { getRouteLog } from "@/lib/models/route-log";
 import { listPollSnapshotsByTrip } from "@/lib/models/poll-snapshot";
 import { computeTripTotals } from "@/lib/domain/trip-totals";
+import { deleteTripCascade } from "@/lib/domain/delete-trip";
 
 export async function GET(
   _request: Request,
@@ -48,4 +49,22 @@ export async function GET(
     batterySeries,
     totals,
   });
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+
+  if (!ObjectId.isValid(id)) {
+    return NextResponse.json({ error: "invalid trip id" }, { status: 400 });
+  }
+
+  const deleted = await deleteTripCascade(id);
+  if (!deleted) {
+    return NextResponse.json({ error: "trip not found" }, { status: 404 });
+  }
+
+  return new NextResponse(null, { status: 204 });
 }

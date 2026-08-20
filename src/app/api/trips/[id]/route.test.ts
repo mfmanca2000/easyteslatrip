@@ -6,9 +6,13 @@ const listDriveSegmentsByTrip = vi.fn();
 const listChargeSessionsByTrip = vi.fn();
 const getRouteLog = vi.fn();
 const listPollSnapshotsByTrip = vi.fn();
+const deleteTripCascade = vi.fn();
 
 vi.mock("@/lib/models/trip", () => ({
   getTrip: (...args: unknown[]) => getTrip(...args),
+}));
+vi.mock("@/lib/domain/delete-trip", () => ({
+  deleteTripCascade: (...args: unknown[]) => deleteTripCascade(...args),
 }));
 vi.mock("@/lib/models/vehicle", () => ({
   getVehicleById: (...args: unknown[]) => getVehicleById(...args),
@@ -92,5 +96,40 @@ describe("GET /api/trips/[id]", () => {
     expect(body.batterySeries).toEqual([{ polledAt: "2026-08-20T07:00:00.000Z", batteryLevel: 80, odometer: 15000 }]);
     expect(body.totals.distanceKm).toBe(100);
     expect(body.totals.drivingMinutes).toBe(60);
+  });
+});
+
+describe("DELETE /api/trips/[id]", () => {
+  it("returns 400 for an invalid trip id", async () => {
+    const { DELETE } = await import("./route");
+
+    const response = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "not-an-id" }),
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 404 when the trip does not exist", async () => {
+    deleteTripCascade.mockResolvedValue(false);
+    const { DELETE } = await import("./route");
+
+    const response = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: TRIP_ID }),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("deletes the trip and returns 204", async () => {
+    deleteTripCascade.mockResolvedValue(true);
+    const { DELETE } = await import("./route");
+
+    const response = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: TRIP_ID }),
+    });
+
+    expect(response.status).toBe(204);
+    expect(deleteTripCascade).toHaveBeenCalledWith(TRIP_ID);
   });
 });

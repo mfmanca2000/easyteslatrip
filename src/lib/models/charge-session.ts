@@ -124,6 +124,11 @@ export async function saveChargeSessions(
   await collection.insertMany(docs);
 }
 
+export async function deleteChargeSessionsByTrip(tripId: string): Promise<void> {
+  const collection = await getChargeSessionsCollection();
+  await collection.deleteMany({ tripId: new ObjectId(tripId) });
+}
+
 export interface ChargeSessionPatch {
   placeName?: string;
   costPerKwh?: number | null;
