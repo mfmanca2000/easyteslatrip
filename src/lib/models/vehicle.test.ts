@@ -4,6 +4,7 @@ const insertOne = vi.fn();
 const sort = vi.fn();
 const find = vi.fn(() => ({ sort }));
 const findOneAndUpdate = vi.fn();
+const deleteOne = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   getDb: async () => ({
@@ -11,6 +12,7 @@ vi.mock("@/lib/db", () => ({
       insertOne,
       find,
       findOneAndUpdate,
+      deleteOne,
     }),
   }),
 }));
@@ -107,5 +109,27 @@ describe("updateVehicle", () => {
     const vehicle = await updateVehicle(VEHICLE_ID, { batteryCapacityKwh: 82 });
 
     expect(vehicle).toBeNull();
+  });
+});
+
+describe("deleteVehicle", () => {
+  const VEHICLE_ID = "507f1f77bcf86cd799439011";
+
+  beforeEach(() => {
+    deleteOne.mockReset();
+  });
+
+  it("returns true when the vehicle was deleted", async () => {
+    deleteOne.mockResolvedValue({ deletedCount: 1 });
+    const { deleteVehicle } = await import("./vehicle");
+
+    await expect(deleteVehicle(VEHICLE_ID)).resolves.toBe(true);
+  });
+
+  it("returns false when no vehicle matched", async () => {
+    deleteOne.mockResolvedValue({ deletedCount: 0 });
+    const { deleteVehicle } = await import("./vehicle");
+
+    await expect(deleteVehicle(VEHICLE_ID)).resolves.toBe(false);
   });
 });

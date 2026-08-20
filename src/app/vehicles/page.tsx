@@ -160,6 +160,7 @@ export default function VehiclesPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchJson<{ vehicles: Vehicle[] }>("/api/vehicles")
@@ -185,6 +186,24 @@ export default function VehiclesPage() {
     });
     setVehicles((current) => (current ? [...current, body.vehicle] : [body.vehicle]));
     setAdding(false);
+  }
+
+  async function deleteVehicle(id: string, name: string) {
+    if (!window.confirm(`Delete ${name}? This also deletes all of its trips and cannot be undone.`)) return;
+    setDeletingId(id);
+    setError(null);
+    try {
+      const response = await fetch(`/api/vehicles/${id}`, { method: "DELETE" });
+      if (!response.ok && response.status !== 204) {
+        const body = await response.json().catch(() => null);
+        throw new Error((body as { error?: string } | null)?.error ?? `Request failed (${response.status})`);
+      }
+      setVehicles((current) => current?.filter((v) => v.id !== id) ?? current);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete vehicle");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -214,13 +233,23 @@ export default function VehiclesPage() {
                       <div className={styles.cardName}>🚗 {vehicle.name}</div>
                       <div className={styles.cardPrefix}>{vehicle.entityPrefix}</div>
                     </div>
-                    <button
-                      type="button"
-                      className={styles.editBtn}
-                      onClick={() => setEditingId(editingId === vehicle.id ? null : vehicle.id)}
-                    >
-                      {editingId === vehicle.id ? "close" : "edit"}
-                    </button>
+                    <div className={styles.cardActions}>
+                      <button
+                        type="button"
+                        className={styles.editBtn}
+                        onClick={() => setEditingId(editingId === vehicle.id ? null : vehicle.id)}
+                      >
+                        {editingId === vehicle.id ? "close" : "edit"}
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.deleteBtn}
+                        onClick={() => deleteVehicle(vehicle.id, vehicle.name)}
+                        disabled={deletingId === vehicle.id}
+                      >
+                        {deletingId === vehicle.id ? "deleting…" : "delete"}
+                      </button>
+                    </div>
                   </div>
 
                   <div className={styles.capacityRow}>

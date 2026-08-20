@@ -77,3 +77,9 @@ export async function updateVehicle(id: string, patch: VehiclePatch): Promise<Ve
   );
   return doc ? toVehicle(doc) : null;
 }
+
+export async function deleteVehicle(id: string): Promise<boolean> {
+  const collection = await getVehiclesCollection();
+  const result = await collection.deleteOne({ _id: new ObjectId(id) });
+  return result.deletedCount === 1;
+}
