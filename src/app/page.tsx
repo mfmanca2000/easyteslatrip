@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import styles from "./page.module.css";
 
 interface Vehicle {
@@ -42,22 +42,36 @@ function formatClosed(trip: Trip): string {
   return `${dateLabel} · ${timeFormatter.format(start)}–${timeFormatter.format(end)}`;
 }
 
+class HttpError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+
 async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error((body as { error?: string } | null)?.error ?? `Request failed (${response.status})`);
+    throw new HttpError(
+      (body as { error?: string } | null)?.error ?? `Request failed (${response.status})`,
+      response.status,
+    );
   }
   return body as T;
 }
 
-export default function TripListPage() {
+function TripListPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [trips, setTrips] = useState<Trip[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const autoStartRequested = useRef(false);
 
   useEffect(() => {
     fetchJson<{ vehicles: Vehicle[] }>("/api/vehicles")
@@ -83,6 +97,32 @@ export default function TripListPage() {
     };
   }, [selectedVehicleId]);
 
+  // "Start Trip" homescreen shortcut (see manifest.ts) deep-links here with
+  // ?action=start-trip so tapping it starts a trip without opening the app first.
+  useEffect(() => {
+    if (autoStartRequested.current) return;
+    if (searchParams.get("action") !== "start-trip") return;
+    if (vehicles === null) return; // still loading — wait to see if there's anything to start
+
+    if (vehicles.length === 0) {
+      autoStartRequested.current = true;
+      router.replace("/");
+      return;
+    }
+
+    if (trips === null) return; // vehicles ready, still waiting on trips for selectedVehicleId
+
+    autoStartRequested.current = true;
+    router.replace("/");
+    const active = trips.find((trip) => trip.endedAt === null);
+    if (!active) {
+      void handleStart();
+    }
+    // handleStart/refreshTrips are recreated every render; autoStartRequested
+    // already makes this effect fire at most once, so they're safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, vehicles, selectedVehicleId, trips, router]);
+
   async function refreshTrips() {
     if (!selectedVehicleId) return;
     const body = await fetchJson<{ trips: Trip[] }>(`/api/trips?vehicleId=${selectedVehicleId}`);
@@ -101,7 +141,18 @@ export default function TripListPage() {
       });
       await refreshTrips();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start trip");
+      if (err instanceof HttpError && err.status === 409) {
+        // A trip is already active (e.g. a racing double-tap of the "Start
+        // Trip" shortcut) — the desired end state already holds, so just
+        // reflect it instead of showing an alarming error banner.
+        try {
+          await refreshTrips();
+        } catch {
+          setError("A trip is already active — refresh to see it.");
+        }
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to start trip");
+      }
     } finally {
       setBusy(false);
     }
@@ -212,5 +263,13 @@ export default function TripListPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function TripListPage() {
+  return (
+    <Suspense>
+      <TripListPageContent />
+    </Suspense>
   );
 }

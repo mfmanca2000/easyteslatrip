@@ -29,5 +29,14 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "maskable",
       },
     ],
+    shortcuts: [
+      {
+        name: "Start Trip",
+        short_name: "Start Trip",
+        description: "Start tracking a new Trip for the selected vehicle",
+        url: "/?action=start-trip",
+        icons: [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+      },
+    ],
   };
 }
