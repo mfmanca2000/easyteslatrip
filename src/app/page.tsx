@@ -192,16 +192,27 @@ function TripListPageContent() {
     <div className={styles.page}>
       <div className={`${styles.appbar} ${styles.container}`} style={{ maxWidth: "none" }}>
         <h1>Trips</h1>
-        <button
-          type="button"
-          className={styles.startButton}
-          disabled={busy || !selectedVehicleId || !!activeTrip}
-          onClick={handleStart}
-          aria-label="Start trip"
-          title={activeTrip ? "A trip is already in progress" : "Start trip"}
-        >
-          +
-        </button>
+        <div className={styles.appbarActions}>
+          <button
+            type="button"
+            className={styles.iconButton}
+            onClick={() => router.push("/vehicles")}
+            aria-label="Vehicles"
+            title="Manage vehicles"
+          >
+            ⚙
+          </button>
+          <button
+            type="button"
+            className={styles.startButton}
+            disabled={busy || !selectedVehicleId || !!activeTrip}
+            onClick={handleStart}
+            aria-label="Start trip"
+            title={activeTrip ? "A trip is already in progress" : "Start trip"}
+          >
+            +
+          </button>
+        </div>
       </div>
 
       <div className={styles.container}>
