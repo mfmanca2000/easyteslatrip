@@ -1,10 +1,14 @@
 // Pure aggregation of a Trip's totals from its DriveSegments and
 // ChargeSessions, for the Trip Detail page's stat cards.
 
+import { aggregateWhPerKm } from "./consumption";
+
 export interface TripTotalsDriveSegmentInput {
   startedAt: string;
   endedAt: string | null;
   distanceKm: number | null;
+  startBatteryLevel: number;
+  endBatteryLevel: number | null;
 }
 
 export interface TripTotalsChargeSessionInput {
@@ -23,6 +27,9 @@ export interface TripTotals {
   energyAddedKwh: number;
   totalCost: number;
   allChargesFree: boolean;
+  // Null until the vehicle has a configured battery capacity, or there is
+  // no closed drive distance yet to compute a ratio from.
+  whPerKm: number | null;
 }
 
 function minutesBetween(startedAt: string, endedAt: string | null): number {
@@ -42,6 +49,7 @@ function chargeCost(session: TripTotalsChargeSessionInput): number {
 export function computeTripTotals(
   driveSegments: TripTotalsDriveSegmentInput[],
   chargeSessions: TripTotalsChargeSessionInput[],
+  batteryCapacityKwh: number | null = null,
 ): TripTotals {
   const distanceKm = driveSegments.reduce((sum, s) => sum + (s.distanceKm ?? 0), 0);
   const drivingMinutes = driveSegments.reduce((sum, s) => sum + minutesBetween(s.startedAt, s.endedAt), 0);
@@ -49,6 +57,7 @@ export function computeTripTotals(
   const energyAddedKwh = chargeSessions.reduce((sum, s) => sum + (s.energyAdded ?? 0), 0);
   const totalCost = chargeSessions.reduce((sum, s) => sum + chargeCost(s), 0);
   const allChargesFree = chargeSessions.length > 0 && chargeSessions.every((s) => s.free);
+  const whPerKm = aggregateWhPerKm(driveSegments, batteryCapacityKwh);
 
-  return { distanceKm, drivingMinutes, chargingMinutes, energyAddedKwh, totalCost, allChargesFree };
+  return { distanceKm, drivingMinutes, chargingMinutes, energyAddedKwh, totalCost, allChargesFree, whPerKm };
 }

@@ -11,6 +11,8 @@ export interface DriveSegmentDoc {
   startOdometer: number;
   endOdometer: number | null;
   distanceKm: number | null;
+  startBatteryLevel: number;
+  endBatteryLevel: number | null;
   startLatitude: number;
   startLongitude: number;
   endLatitude: number | null;
@@ -28,6 +30,8 @@ export interface DriveSegment {
   startOdometer: number;
   endOdometer: number | null;
   distanceKm: number | null;
+  startBatteryLevel: number;
+  endBatteryLevel: number | null;
   startLatitude: number;
   startLongitude: number;
   endLatitude: number | null;
@@ -53,6 +57,8 @@ function toDriveSegment(doc: DriveSegmentDoc): DriveSegment {
     startOdometer: doc.startOdometer,
     endOdometer: doc.endOdometer,
     distanceKm: doc.distanceKm,
+    startBatteryLevel: doc.startBatteryLevel,
+    endBatteryLevel: doc.endBatteryLevel,
     startLatitude: doc.startLatitude,
     startLongitude: doc.startLongitude,
     endLatitude: doc.endLatitude,
@@ -110,6 +116,8 @@ export async function saveDriveSegments(
     startOdometer: segment.startOdometer,
     endOdometer: segment.endOdometer,
     distanceKm: segment.distanceKm,
+    startBatteryLevel: segment.startBatteryLevel,
+    endBatteryLevel: segment.endBatteryLevel,
     startLatitude: segment.startLatitude,
     startLongitude: segment.startLongitude,
     endLatitude: segment.endLatitude,

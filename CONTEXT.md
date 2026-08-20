@@ -18,7 +18,7 @@ Nothing pushes events — the app must **poll** HA state on an interval and infe
 ## Terms
 
 **Vehicle**
-A single physical Tesla, identified by its HA device/entity prefix. A user may register multiple Vehicles (multi-car support). All Trips belong to exactly one Vehicle.
+A single physical Tesla, identified by its HA device/entity prefix. A user may register multiple Vehicles (multi-car support). All Trips belong to exactly one Vehicle. Carries a user-entered usable battery pack capacity (`batteryCapacityKwh`, nullable) — HA exposes no energy-consumed sensor, so this is what turns a DriveSegment's battery % drop into a Wh/km figure.
 
 **Trip**
 A user-declared span of travel for one Vehicle, manually started and manually stopped in the web app (not inferred from car state). A Trip is the top-level container: it owns DriveSegments, ChargeSessions, and the RouteLog for the time window between its start and stop. A Vehicle may have many Trips; Trips do not overlap for the same Vehicle.
@@ -27,7 +27,10 @@ A user-declared span of travel for one Vehicle, manually started and manually st
 One raw poll of a Vehicle's HA state at a point in time (battery %, shift_state, charging_state, odometer, lat/long, charger_power). The atomic unit ingested from HA; DriveSegments, ChargeSessions, and RouteLog points are all derived from consecutive PollSnapshots. Retained as the audit trail / reprocessing source.
 
 **DriveSegment**
-A contiguous period within a Trip where the Vehicle is inferred to be driving (derived from `shift_state` != `P` and/or odometer increasing between snapshots). Fields: start/end time, start/end odometer, distance, duration, start/end GPS point, start/end place name (reverse-geocoded via Mapbox at write-time when the segment closes, user-editable).
+A contiguous period within a Trip where the Vehicle is inferred to be driving (derived from `shift_state` != `P` and/or odometer increasing between snapshots). Fields: start/end time, start/end odometer, distance, duration, start/end battery %, start/end GPS point, start/end place name (reverse-geocoded via Mapbox at write-time when the segment closes, user-editable).
+
+**Consumption (Wh/km)**
+Energy used per km driven, inferred from a DriveSegment's battery % drop times the Vehicle's `batteryCapacityKwh` — never null-guarded away to zero, since a segment with net regen legitimately yields a negative figure. Null wherever the Vehicle has no configured battery capacity, or there's no closed drive distance to divide by. Reported at three levels: per DriveSegment (leg), summed across a Trip's DriveSegments (trip total), and summed across every Trip's DriveSegments for a Vehicle (all-time). Each aggregate sums energy used over distance driven rather than averaging per-leg ratios, so longer legs weigh proportionally more.
 
 **ChargeSession**
 A contiguous period within a Trip where the Vehicle is inferred to be charging (`charging_state == Charging`). Fields: location (GPS + place name, reverse-geocoded via Mapbox at write-time when the session closes, user-editable), start/end time, duration, start/end battery %, energy added (kWh), cost — either a manual `€/kWh` or total `€` entered by the user, or a `free: true` flag (superchargers today are free for this user, but cost fields stay first-class for when that changes).

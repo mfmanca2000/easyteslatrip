@@ -19,6 +19,7 @@ interface VehicleStats {
   totalCost: number;
   allChargesFree: boolean;
   avgSpeedKmh: number;
+  whPerKm: number | null;
 }
 
 async function fetchJson<T>(input: string): Promise<T> {
@@ -40,6 +41,10 @@ function formatDuration(minutes: number): string {
   const h = Math.floor(total / 60);
   const m = total % 60;
   return h > 0 ? `${h}h${String(m).padStart(2, "0")}` : `${m} min`;
+}
+
+function formatWhPerKm(whPerKm: number | null): string {
+  return whPerKm != null ? `${Math.round(whPerKm)} Wh/km` : "—";
 }
 
 function StatsPageContent() {
@@ -156,6 +161,10 @@ function StatsPageContent() {
                   <div className={styles.stat}>
                     <div className={styles.statV}>{Math.round(displayStats.avgSpeedKmh)} km/h</div>
                     <div className={styles.statL}>Avg. driving speed</div>
+                  </div>
+                  <div className={styles.stat}>
+                    <div className={styles.statV}>{formatWhPerKm(displayStats.whPerKm)}</div>
+                    <div className={styles.statL}>Avg. consumption</div>
                   </div>
                 </div>
               </>

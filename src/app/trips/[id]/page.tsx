@@ -23,6 +23,7 @@ interface DriveSegment {
   startedAt: string;
   endedAt: string | null;
   distanceKm: number | null;
+  whPerKm: number | null;
   startLatitude: number;
   startLongitude: number;
   endLatitude: number | null;
@@ -61,6 +62,7 @@ interface TripTotals {
   energyAddedKwh: number;
   totalCost: number;
   allChargesFree: boolean;
+  whPerKm: number | null;
 }
 
 interface TripDetail {
@@ -107,6 +109,10 @@ function parseNumberOrNull(value: string): number | null {
 
 function formatKm(km: number): string {
   return `${Math.round(km)} km`;
+}
+
+function formatWhPerKm(whPerKm: number | null): string {
+  return whPerKm != null ? `${Math.round(whPerKm)} Wh/km` : "—";
 }
 
 function formatCost(session: ChargeSession): string {
@@ -534,7 +540,12 @@ export default function TripDetailPage() {
                       </td>
                       <td className={styles.stat}>
                         {leg.type === "drive" ? (
-                          leg.segment.distanceKm != null ? formatKm(leg.segment.distanceKm) : "…"
+                          <>
+                            {leg.segment.distanceKm != null ? formatKm(leg.segment.distanceKm) : "…"}
+                            {leg.segment.whPerKm != null && (
+                              <span className={styles.statSub}>{formatWhPerKm(leg.segment.whPerKm)}</span>
+                            )}
+                          </>
                         ) : (
                           <>
                             {leg.session.energyAdded != null ? `+${leg.session.energyAdded} kWh` : "…"}
@@ -586,6 +597,10 @@ export default function TripDetailPage() {
           <div className={styles.kpiStat}>
             <div className={styles.kpiV}>{totals.energyAddedKwh.toFixed(0)} kWh</div>
             <div className={styles.kpiL}>Energy added</div>
+          </div>
+          <div className={styles.kpiStat}>
+            <div className={styles.kpiV}>{formatWhPerKm(totals.whPerKm)}</div>
+            <div className={styles.kpiL}>Consumption</div>
           </div>
           <div className={`${styles.kpiStat} ${styles.kpiWide}`}>
             <div>

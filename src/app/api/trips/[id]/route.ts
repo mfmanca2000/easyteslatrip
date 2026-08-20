@@ -7,6 +7,7 @@ import { listChargeSessionsByTrip } from "@/lib/models/charge-session";
 import { getRouteLog } from "@/lib/models/route-log";
 import { listPollSnapshotsByTrip } from "@/lib/models/poll-snapshot";
 import { computeTripTotals } from "@/lib/domain/trip-totals";
+import { segmentWhPerKm } from "@/lib/domain/consumption";
 import { deleteTripCascade } from "@/lib/domain/delete-trip";
 
 export async function GET(
@@ -38,12 +39,17 @@ export async function GET(
     odometer: snapshot.odometer,
   }));
 
-  const totals = computeTripTotals(driveSegments, chargeSessions);
+  const batteryCapacityKwh = vehicle?.batteryCapacityKwh ?? null;
+  const totals = computeTripTotals(driveSegments, chargeSessions, batteryCapacityKwh);
+  const driveSegmentsWithConsumption = driveSegments.map((segment) => ({
+    ...segment,
+    whPerKm: segmentWhPerKm(segment, batteryCapacityKwh),
+  }));
 
   return NextResponse.json({
     trip,
     vehicle,
-    driveSegments,
+    driveSegments: driveSegmentsWithConsumption,
     chargeSessions,
     routeLog,
     batterySeries,
