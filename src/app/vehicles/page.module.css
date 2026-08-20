@@ -89,6 +89,12 @@
   margin-top: 2px;
 }
 
+.cardActions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
 .editBtn {
   font-size: 10px;
   color: var(--text-dim);
@@ -98,6 +104,22 @@
   background: transparent;
   cursor: pointer;
   flex: none;
+}
+
+.deleteBtn {
+  font-size: 10px;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 20px;
+  padding: 3px 10px;
+  background: transparent;
+  cursor: pointer;
+  flex: none;
+}
+
+.deleteBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .capacityRow {

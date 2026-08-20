@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 const updateVehicle = vi.fn();
+const deleteVehicleCascade = vi.fn();
 
 vi.mock("@/lib/models/vehicle", () => ({
   updateVehicle: (...args: unknown[]) => updateVehicle(...args),
+}));
+vi.mock("@/lib/domain/delete-vehicle", () => ({
+  deleteVehicleCascade: (...args: unknown[]) => deleteVehicleCascade(...args),
 }));
 
 const VEHICLE_ID = "507f1f77bcf86cd799439011";
@@ -82,5 +86,40 @@ describe("PATCH /api/vehicles/[id]", () => {
     });
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe("DELETE /api/vehicles/[id]", () => {
+  it("rejects an invalid id", async () => {
+    const { DELETE } = await import("./route");
+
+    const response = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "not-an-id" }),
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 404 when the vehicle does not exist", async () => {
+    deleteVehicleCascade.mockResolvedValue(false);
+    const { DELETE } = await import("./route");
+
+    const response = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: VEHICLE_ID }),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("deletes the vehicle and returns 204", async () => {
+    deleteVehicleCascade.mockResolvedValue(true);
+    const { DELETE } = await import("./route");
+
+    const response = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: VEHICLE_ID }),
+    });
+
+    expect(response.status).toBe(204);
+    expect(deleteVehicleCascade).toHaveBeenCalledWith(VEHICLE_ID);
   });
 });
