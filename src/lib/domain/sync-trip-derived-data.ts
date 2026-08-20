@@ -77,21 +77,30 @@ async function mergeDriveSegment(
   return { ...segment, startPlaceName, endPlaceName };
 }
 
+function carriedCostFields(match: ChargeSession | undefined) {
+  return {
+    costPerKwh: match?.costPerKwh ?? null,
+    costTotal: match?.costTotal ?? null,
+    free: match?.free ?? false,
+  };
+}
+
 async function mergeChargeSession(
   session: DerivedChargeSession,
   previous: ChargeSession[],
 ): Promise<ChargeSessionToSave> {
   const match = previous.find((p) => new Date(p.startedAt).getTime() === session.startedAt.getTime());
+  const cost = carriedCostFields(match);
 
   if (!session.endedAt) {
-    return { ...session, placeName: null };
+    return { ...session, placeName: null, ...cost };
   }
   // See the analogous comment in mergeDriveSegment: reuse a prior legitimate
   // null result instead of re-geocoding forever.
   if (match?.endedAt) {
-    return { ...session, placeName: match.placeName };
+    return { ...session, placeName: match.placeName, ...cost };
   }
 
   const placeName = await reverseGeocode(session.latitude, session.longitude);
-  return { ...session, placeName };
+  return { ...session, placeName, ...cost };
 }

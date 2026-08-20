@@ -145,6 +145,43 @@ describe("syncTripDerivedData", () => {
     expect(saved[0].placeName).toBe("Bologna, Italy");
   });
 
+  it("carries forward a previously-entered cost onto a recomputed charge session", async () => {
+    listPollSnapshotsByTrip.mockResolvedValue([
+      pollSnapshot({ chargingState: "Charging", batteryLevel: 40, polledAt: "2026-08-20T07:00:00.000Z" }),
+      pollSnapshot({
+        chargingState: "Complete",
+        batteryLevel: 90,
+        energyAdded: 35,
+        polledAt: "2026-08-20T08:00:00.000Z",
+      }),
+    ]);
+    listChargeSessionsByTrip.mockResolvedValue([
+      {
+        id: "sess1",
+        tripId: TRIP_ID,
+        vehicleId: VEHICLE_ID,
+        startedAt: "2026-08-20T07:00:00.000Z",
+        endedAt: "2026-08-20T08:00:00.000Z",
+        startBatteryLevel: 40,
+        endBatteryLevel: 90,
+        energyAdded: 35,
+        latitude: 44.5,
+        longitude: 11.3,
+        placeName: "Bologna, Italy",
+        costPerKwh: null,
+        costTotal: 15.4,
+        free: false,
+      },
+    ]);
+    const { syncTripDerivedData } = await import("./sync-trip-derived-data");
+
+    await syncTripDerivedData(TRIP_ID, VEHICLE_ID);
+
+    const saved = saveChargeSessions.mock.calls[0][2];
+    expect(saved[0].costTotal).toBe(15.4);
+    expect(saved[0].free).toBe(false);
+  });
+
   it("always replaces the route log with every point", async () => {
     listPollSnapshotsByTrip.mockResolvedValue([
       pollSnapshot({ polledAt: "2026-08-20T07:00:00.000Z" }),

@@ -67,6 +67,12 @@ export async function listTrips(vehicleId: string): Promise<Trip[]> {
   return docs.map(toTrip);
 }
 
+export async function getTrip(id: string): Promise<Trip | null> {
+  const collection = await getTripsCollection();
+  const doc = await collection.findOne({ _id: new ObjectId(id) });
+  return doc ? toTrip(doc) : null;
+}
+
 export async function getActiveTrip(vehicleId: string): Promise<Trip | null> {
   const collection = await getTripsCollection();
   const doc = await collection.findOne({

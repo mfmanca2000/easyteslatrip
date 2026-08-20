@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import styles from "./page.module.css";
 
 interface Vehicle {
@@ -187,12 +188,12 @@ export default function TripListPage() {
                   <p className={styles.empty}>No past trips yet.</p>
                 ) : (
                   pastTrips.map((trip) => (
-                    <div key={trip.id} className={styles.trip}>
+                    <Link key={trip.id} href={`/trips/${trip.id}`} className={styles.trip}>
                       <div className={styles.tripHead}>
                         <div className={styles.tripName}>Trip</div>
                         <div className={styles.tripDates}>{formatClosed(trip)}</div>
                       </div>
-                    </div>
+                    </Link>
                   ))
                 )}
               </>

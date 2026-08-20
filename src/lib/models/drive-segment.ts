@@ -107,3 +107,21 @@ export async function saveDriveSegments(
   }));
   await collection.insertMany(docs);
 }
+
+export interface DriveSegmentPatch {
+  startPlaceName?: string;
+  endPlaceName?: string;
+}
+
+export async function updateDriveSegment(
+  id: string,
+  patch: DriveSegmentPatch,
+): Promise<DriveSegment | null> {
+  const collection = await getDriveSegmentsCollection();
+  const doc = await collection.findOneAndUpdate(
+    { _id: new ObjectId(id) },
+    { $set: patch },
+    { returnDocument: "after" },
+  );
+  return doc ? toDriveSegment(doc) : null;
+}

@@ -14,6 +14,9 @@ export interface ChargeSessionDoc {
   latitude: number;
   longitude: number;
   placeName: string | null;
+  costPerKwh: number | null;
+  costTotal: number | null;
+  free: boolean;
 }
 
 export interface ChargeSession {
@@ -28,12 +31,20 @@ export interface ChargeSession {
   latitude: number;
   longitude: number;
   placeName: string | null;
+  costPerKwh: number | null;
+  costTotal: number | null;
+  free: boolean;
 }
 
 // Derived + geocoded, keyed by its start time — the natural identity of a
-// ChargeSession across repeated recomputation of the same trip.
+// ChargeSession across repeated recomputation of the same trip. Cost fields
+// are user-entered (not derived), so syncTripDerivedData carries them
+// forward from the previous save the same way it carries placeName.
 export type ChargeSessionToSave = DerivedChargeSession & {
   placeName: string | null;
+  costPerKwh: number | null;
+  costTotal: number | null;
+  free: boolean;
 };
 
 function toChargeSession(doc: ChargeSessionDoc): ChargeSession {
@@ -49,6 +60,9 @@ function toChargeSession(doc: ChargeSessionDoc): ChargeSession {
     latitude: doc.latitude,
     longitude: doc.longitude,
     placeName: doc.placeName,
+    costPerKwh: doc.costPerKwh,
+    costTotal: doc.costTotal,
+    free: doc.free,
   };
 }
 
@@ -91,6 +105,29 @@ export async function saveChargeSessions(
     latitude: session.latitude,
     longitude: session.longitude,
     placeName: session.placeName,
+    costPerKwh: session.costPerKwh,
+    costTotal: session.costTotal,
+    free: session.free,
   }));
   await collection.insertMany(docs);
+}
+
+export interface ChargeSessionPatch {
+  placeName?: string;
+  costPerKwh?: number | null;
+  costTotal?: number | null;
+  free?: boolean;
+}
+
+export async function updateChargeSession(
+  id: string,
+  patch: ChargeSessionPatch,
+): Promise<ChargeSession | null> {
+  const collection = await getChargeSessionsCollection();
+  const doc = await collection.findOneAndUpdate(
+    { _id: new ObjectId(id) },
+    { $set: patch },
+    { returnDocument: "after" },
+  );
+  return doc ? toChargeSession(doc) : null;
 }

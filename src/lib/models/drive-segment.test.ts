@@ -4,6 +4,7 @@ const insertMany = vi.fn();
 const deleteMany = vi.fn();
 const sort = vi.fn();
 const find = vi.fn(() => ({ sort }));
+const findOneAndUpdate = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   getDb: async () => ({
@@ -11,6 +12,7 @@ vi.mock("@/lib/db", () => ({
       insertMany,
       deleteMany,
       find,
+      findOneAndUpdate,
     }),
   }),
 }));
@@ -91,5 +93,51 @@ describe("listDriveSegmentsByTrip", () => {
 
     expect(segments).toHaveLength(1);
     expect(sort).toHaveBeenCalledWith({ startedAt: 1 });
+  });
+});
+
+describe("updateDriveSegment", () => {
+  beforeEach(() => {
+    findOneAndUpdate.mockReset();
+  });
+
+  const SEGMENT_ID = "507f1f77bcf86cd799439022";
+
+  it("applies the patch and returns the updated segment", async () => {
+    findOneAndUpdate.mockResolvedValue({
+      _id: { toHexString: () => SEGMENT_ID },
+      tripId: { toHexString: () => TRIP_ID },
+      vehicleId: { toHexString: () => VEHICLE_ID },
+      startedAt: new Date("2026-08-20T07:00:00.000Z"),
+      endedAt: new Date("2026-08-20T07:10:00.000Z"),
+      startOdometer: 15000,
+      endOdometer: 15010,
+      distanceKm: 10,
+      startLatitude: 44.5,
+      startLongitude: 11.3,
+      endLatitude: 44.6,
+      endLongitude: 11.4,
+      startPlaceName: "Custom name",
+      endPlaceName: "Modena, Italy",
+    });
+    const { updateDriveSegment } = await import("./drive-segment");
+
+    const segment = await updateDriveSegment(SEGMENT_ID, { startPlaceName: "Custom name" });
+
+    expect(findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: expect.anything() },
+      { $set: { startPlaceName: "Custom name" } },
+      { returnDocument: "after" },
+    );
+    expect(segment?.startPlaceName).toBe("Custom name");
+  });
+
+  it("returns null when the segment does not exist", async () => {
+    findOneAndUpdate.mockResolvedValue(null);
+    const { updateDriveSegment } = await import("./drive-segment");
+
+    const segment = await updateDriveSegment(SEGMENT_ID, { startPlaceName: "x" });
+
+    expect(segment).toBeNull();
   });
 });

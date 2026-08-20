@@ -86,6 +86,35 @@ describe("getActiveTrip", () => {
   });
 });
 
+describe("getTrip", () => {
+  beforeEach(() => {
+    findOne.mockReset();
+  });
+
+  it("returns the trip when found", async () => {
+    findOne.mockResolvedValue({
+      _id: { toHexString: () => TRIP_ID },
+      vehicleId: { toHexString: () => VEHICLE_ID },
+      startedAt: new Date("2026-08-20T07:00:00.000Z"),
+      endedAt: null,
+    });
+    const { getTrip } = await import("./trip");
+
+    const trip = await getTrip(TRIP_ID);
+
+    expect(trip?.id).toBe(TRIP_ID);
+  });
+
+  it("returns null when not found", async () => {
+    findOne.mockResolvedValue(null);
+    const { getTrip } = await import("./trip");
+
+    const trip = await getTrip(TRIP_ID);
+
+    expect(trip).toBeNull();
+  });
+});
+
 describe("stopTrip", () => {
   it("marks the trip closed and returns it", async () => {
     findOneAndUpdate.mockResolvedValue({
