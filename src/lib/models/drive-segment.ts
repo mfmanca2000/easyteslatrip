@@ -120,6 +120,11 @@ export async function saveDriveSegments(
   await collection.insertMany(docs);
 }
 
+export async function deleteDriveSegmentsByTrip(tripId: string): Promise<void> {
+  const collection = await getDriveSegmentsCollection();
+  await collection.deleteMany({ tripId: new ObjectId(tripId) });
+}
+
 export interface DriveSegmentPatch {
   startPlaceName?: string;
   endPlaceName?: string;

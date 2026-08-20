@@ -64,6 +64,21 @@ describe("saveDriveSegments", () => {
   });
 });
 
+describe("deleteDriveSegmentsByTrip", () => {
+  beforeEach(() => {
+    deleteMany.mockReset();
+    deleteMany.mockResolvedValue({ acknowledged: true });
+  });
+
+  it("deletes all segments scoped to the trip", async () => {
+    const { deleteDriveSegmentsByTrip } = await import("./drive-segment");
+
+    await deleteDriveSegmentsByTrip(TRIP_ID);
+
+    expect(deleteMany).toHaveBeenCalledWith({ tripId: expect.anything() });
+  });
+});
+
 describe("listDriveSegmentsByTrip", () => {
   it("returns segments sorted oldest-first", async () => {
     sort.mockReturnValue({

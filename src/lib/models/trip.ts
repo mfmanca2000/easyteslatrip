@@ -120,3 +120,9 @@ export async function stopTrip(tripId: string): Promise<Trip | null> {
   );
   return doc ? toTrip(doc) : null;
 }
+
+export async function deleteTrip(tripId: string): Promise<boolean> {
+  const collection = await getTripsCollection();
+  const result = await collection.deleteOne({ _id: new ObjectId(tripId) });
+  return result.deletedCount === 1;
+}

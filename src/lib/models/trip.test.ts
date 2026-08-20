@@ -6,6 +6,7 @@ const findOne = vi.fn();
 const sort = vi.fn();
 const find = vi.fn(() => ({ sort }));
 const findOneAndUpdate = vi.fn();
+const deleteOne = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   getDb: async () => ({
@@ -15,6 +16,7 @@ vi.mock("@/lib/db", () => ({
       findOne,
       find,
       findOneAndUpdate,
+      deleteOne,
     }),
   }),
 }));
@@ -159,5 +161,25 @@ describe("listTrips", () => {
 
     expect(trips).toHaveLength(1);
     expect(sort).toHaveBeenCalledWith({ startedAt: -1 });
+  });
+});
+
+describe("deleteTrip", () => {
+  beforeEach(() => {
+    deleteOne.mockReset();
+  });
+
+  it("returns true when the trip was deleted", async () => {
+    deleteOne.mockResolvedValue({ deletedCount: 1 });
+    const { deleteTrip } = await import("./trip");
+
+    await expect(deleteTrip(TRIP_ID)).resolves.toBe(true);
+  });
+
+  it("returns false when no trip matched", async () => {
+    deleteOne.mockResolvedValue({ deletedCount: 0 });
+    const { deleteTrip } = await import("./trip");
+
+    await expect(deleteTrip(TRIP_ID)).resolves.toBe(false);
   });
 });
