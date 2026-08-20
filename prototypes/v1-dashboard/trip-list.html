@@ -1,0 +1,116 @@
+<!--
+  PROTOTYPE — throwaway, not production code.
+  wayfinder ticket: "v1 dashboard prototype" (Tesla Trip Tracker map)
+  Single mockup (not a 3-variant set — the ticket's real design question
+  lives in trip-detail.html; this and stats.html just carry the same
+  visual language to the other two v1 pages so the set can be judged
+  together). See trip-detail.html for the ← → variant switcher.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trip List — prototype</title>
+<style>
+  :root{
+    --bg:#0b0f14; --bg-elev:#121821; --bg-card:#161d28;
+    --border:#232c3a; --text:#e8edf4; --text-dim:#8b97a8;
+    --accent:#3ddc97; --accent-dim:#1f4d3c; --accent2:#5b8cff;
+    --charge:#ffb454; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .container{max-width:480px;margin:0 auto;padding:0 16px 32px;}
+  .appbar{position:sticky;top:0;z-index:5;background:rgba(11,15,20,.85);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);padding:16px;display:flex;justify-content:space-between;
+    align-items:center;}
+  .appbar h1{font-size:18px;margin:0;}
+  .appbar .add{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#08130e;
+    display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;}
+
+  .vehtabs{display:flex;gap:8px;padding:14px 0 4px;overflow-x:auto;}
+  .vehtabs .tab{flex:none;padding:7px 14px;border-radius:20px;font-size:13px;border:1px solid var(--border);
+    color:var(--text-dim);}
+  .vehtabs .tab.active{background:var(--accent-dim);color:var(--accent);border-color:transparent;font-weight:600;}
+
+  h2.sectiontitle{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);
+    margin:22px 0 10px;}
+
+  .trip{display:block;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:14px;margin-bottom:12px;text-decoration:none;color:inherit;position:relative;overflow:hidden;}
+  .trip::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent2);}
+  .trip .hd{display:flex;justify-content:space-between;align-items:baseline;}
+  .trip .name{font-size:15px;font-weight:700;}
+  .trip .dates{font-size:12px;color:var(--text-dim);}
+  .trip .stats{display:flex;gap:14px;margin-top:10px;}
+  .trip .stat{font-size:12.5px;color:var(--text-dim);}
+  .trip .stat b{display:block;color:var(--text);font-size:14px;font-weight:700;}
+  .trip .thumb{height:64px;border-radius:10px;margin-top:10px;
+    background:linear-gradient(135deg,#16324a,#101a26 60%,#0c141c);position:relative;overflow:hidden;}
+  .trip .thumb svg{width:100%;height:100%;}
+  .trip .thumb path{fill:none;stroke:var(--accent2);stroke-width:2.5;stroke-dasharray:1.5 6;opacity:.85;}
+
+  .empty{text-align:center;color:var(--text-dim);font-size:13px;padding:40px 20px;}
+</style>
+</head>
+<body>
+<div class="appbar container" style="max-width:none;">
+  <h1>Trips</h1>
+  <div class="add">+</div>
+</div>
+
+<div class="container">
+  <div class="vehtabs">
+    <div class="tab active">🚗 Electra</div>
+    <div class="tab">🚙 All vehicles</div>
+  </div>
+
+  <h2 class="sectiontitle">In progress</h2>
+  <a class="trip" href="trip-detail.html" style="border-color:var(--accent);">
+    <div class="hd"><div class="name">🔴 Alps Weekend</div><div class="dates">since 07:40 today</div></div>
+    <div class="stats">
+      <div class="stat"><b>212 km</b>so far</div>
+      <div class="stat"><b>2h05</b>driving</div>
+      <div class="stat"><b>1</b>charge stop</div>
+    </div>
+  </a>
+
+  <h2 class="sectiontitle">Past trips</h2>
+
+  <a class="trip" href="trip-detail.html">
+    <div class="hd"><div class="name">Milano → Côte d'Azur</div><div class="dates">14–16 Aug 2026</div></div>
+    <div class="stats">
+      <div class="stat"><b>842 km</b>distance</div>
+      <div class="stat"><b>8h20</b>driving</div>
+      <div class="stat"><b>1h45</b>charging</div>
+    </div>
+    <div class="thumb"><svg viewBox="0 0 400 64" preserveAspectRatio="none">
+      <path d="M20,40 C100,50 90,15 190,25 S330,45 380,20"/></svg></div>
+  </a>
+
+  <a class="trip" href="trip-detail.html">
+    <div class="hd"><div class="name">Dolomites Loop</div><div class="dates">02–05 Jul 2026</div></div>
+    <div class="stats">
+      <div class="stat"><b>1,204 km</b>distance</div>
+      <div class="stat"><b>12h10</b>driving</div>
+      <div class="stat"><b>2h30</b>charging</div>
+    </div>
+    <div class="thumb"><svg viewBox="0 0 400 64" preserveAspectRatio="none">
+      <path d="M15,20 C90,10 120,50 200,45 S320,10 385,35"/></svg></div>
+  </a>
+
+  <a class="trip" href="trip-detail.html">
+    <div class="hd"><div class="name">Paris Family Visit</div><div class="dates">19–21 May 2026</div></div>
+    <div class="stats">
+      <div class="stat"><b>1,610 km</b>distance</div>
+      <div class="stat"><b>15h50</b>driving</div>
+      <div class="stat"><b>3h05</b>charging</div>
+    </div>
+    <div class="thumb"><svg viewBox="0 0 400 64" preserveAspectRatio="none">
+      <path d="M10,45 C80,20 140,55 220,20 S330,50 390,15"/></svg></div>
+  </a>
+</div>
+</body>
+</html>

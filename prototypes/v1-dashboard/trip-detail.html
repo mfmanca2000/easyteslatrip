@@ -1,0 +1,374 @@
+<!--
+  PROTOTYPE — throwaway, not production code.
+  wayfinder ticket: "v1 dashboard prototype" (Tesla Trip Tracker map)
+
+  Plan: three radically different variants of the Trip Detail page,
+  switchable via ?variant=A|B|C, on a standalone prototype page
+  (sub-shape B — no existing app yet to embed variants into; this repo
+  is planning-stage only). Floating bottom switcher, ← → + arrow keys.
+
+  A — Map-first / immersive (nav-app feel)
+  B — Timeline-first / journal (activity-log feel)
+  C — Dashboard grid / analytics (stats-first, Grafana-ish feel)
+
+  Data below is realistic sample data matching CONTEXT.md's domain
+  model (Trip > DriveSegment / ChargeSession, RouteLog, place names).
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trip Detail — prototype</title>
+<style>
+  :root{
+    --bg:#0b0f14; --bg-elev:#121821; --bg-card:#161d28;
+    --border:#232c3a; --text:#e8edf4; --text-dim:#8b97a8;
+    --accent:#3ddc97; --accent-dim:#1f4d3c; --accent2:#5b8cff;
+    --charge:#ffb454; --charge-dim:#4d3a1a; --danger:#ff6b6b;
+    --radius:14px;
+    font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  body{padding-bottom:88px;}
+  a{color:inherit;}
+  .container{max-width:480px;margin:0 auto;padding:0 16px;}
+  .hide{display:none !important;}
+
+  /* top app bar, shared */
+  .appbar{position:sticky;top:0;z-index:5;background:rgba(11,15,20,.85);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--border);
+    padding:12px 16px;display:flex;align-items:center;gap:10px;}
+  .appbar .back{width:32px;height:32px;border-radius:50%;background:var(--bg-elev);
+    display:flex;align-items:center;justify-content:center;font-size:16px;flex:none;}
+  .appbar .title{flex:1;min-width:0;}
+  .appbar .title h1{font-size:15px;margin:0;font-weight:600;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;}
+  .appbar .title .sub{font-size:12px;color:var(--text-dim);}
+  .appbar .veh{font-size:11px;color:var(--accent);background:var(--accent-dim);
+    padding:3px 8px;border-radius:20px;flex:none;}
+
+  /* fake map, shared visual language */
+  .mapfake{position:relative;border-radius:var(--radius);overflow:hidden;
+    background:
+      radial-gradient(circle at 20% 20%, #16324a 0%, transparent 45%),
+      radial-gradient(circle at 80% 70%, #123a2e 0%, transparent 50%),
+      linear-gradient(160deg,#0e1720,#101a26 60%,#0c141c);
+    border:1px solid var(--border);}
+  .mapfake svg{display:block;width:100%;height:100%;}
+  .mapfake .route{fill:none;stroke:var(--accent2);stroke-width:3;stroke-linecap:round;
+    stroke-dasharray:2 7;opacity:.9;}
+  .mapfake .pin{filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}
+  .mapfake .pin circle{stroke:var(--bg);stroke-width:2;}
+  .mapfake .label{position:absolute;left:10px;bottom:8px;font-size:10px;
+    color:var(--text-dim);background:rgba(0,0,0,.35);padding:3px 7px;border-radius:20px;}
+
+  /* stat chip */
+  .stat{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:12px;}
+  .stat .v{font-size:19px;font-weight:700;letter-spacing:-.02em;}
+  .stat .l{font-size:11px;color:var(--text-dim);margin-top:2px;text-transform:uppercase;
+    letter-spacing:.04em;}
+
+  /* leg row, shared visual vocabulary across variants */
+  .leg{display:flex;gap:12px;padding:12px 0;}
+  .leg .icon{width:34px;height:34px;border-radius:10px;flex:none;display:flex;
+    align-items:center;justify-content:center;font-size:15px;}
+  .leg.drive .icon{background:#1a2740;color:var(--accent2);}
+  .leg.charge .icon{background:var(--charge-dim);color:var(--charge);}
+  .leg .body{flex:1;min-width:0;}
+  .leg .row1{display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
+  .leg .place{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .leg .metric{font-size:13px;font-weight:600;flex:none;}
+  .leg.charge .metric{color:var(--charge);}
+  .leg.drive .metric{color:var(--accent2);}
+  .leg .row2{font-size:12px;color:var(--text-dim);margin-top:2px;}
+  .leg .edit{font-size:10px;color:var(--text-dim);border:1px solid var(--border);
+    border-radius:20px;padding:1px 7px;margin-left:6px;}
+
+  h2.sectiontitle{font-size:12px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--text-dim);margin:22px 0 10px;}
+
+  /* chart */
+  .chart{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:14px;}
+  .chart .hd{display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim);
+    margin-bottom:8px;}
+  .chart svg{display:block;width:100%;height:90px;}
+  .chart .line{fill:none;stroke:var(--accent);stroke-width:2;}
+  .chart .fill{fill:url(#g1);opacity:.5;}
+
+  /* ---------- VARIANT A: map-first / immersive ---------- */
+  #variantA .herowrap{position:sticky;top:53px;z-index:1;}
+  #variantA .mapfake{height:46vh;min-height:260px;border-radius:0;border-left:0;border-right:0;
+    border-top:0;margin:0 -16px;}
+  #variantA .sheet{background:var(--bg);border-radius:20px 20px 0 0;margin-top:-18px;
+    position:relative;z-index:2;padding-top:18px;box-shadow:0 -8px 24px rgba(0,0,0,.35);}
+  #variantA .grabber{width:38px;height:4px;background:var(--border);border-radius:4px;
+    margin:0 auto 14px;}
+  #variantA .statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  #variantA .statrow .stat{padding:10px 6px;text-align:center;}
+  #variantA .statrow .v{font-size:15px;}
+
+  /* ---------- VARIANT B: timeline / journal ---------- */
+  #variantB .statscroll{display:flex;gap:10px;overflow-x:auto;padding:14px 16px 4px;
+    margin:0 -16px;scrollbar-width:none;}
+  #variantB .statscroll::-webkit-scrollbar{display:none;}
+  #variantB .statscroll .stat{min-width:108px;flex:none;}
+  #variantB .mapfake{height:150px;margin:14px 0;}
+  #variantB .tl{position:relative;padding-left:26px;}
+  #variantB .tl::before{content:"";position:absolute;left:11px;top:6px;bottom:6px;width:2px;
+    background:linear-gradient(var(--border),var(--border));}
+  #variantB .tlnode{position:relative;margin-bottom:18px;}
+  #variantB .tlnode .dot{position:absolute;left:-26px;top:2px;width:24px;height:24px;
+    border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;
+    border:2px solid var(--bg);}
+  #variantB .tlnode.drive .dot{background:#1a2740;color:var(--accent2);}
+  #variantB .tlnode.charge .dot{background:var(--charge-dim);color:var(--charge);}
+  #variantB .tlnode .card{background:var(--bg-card);border:1px solid var(--border);
+    border-radius:var(--radius);padding:10px 12px;}
+  #variantB .tlnode .row1{display:flex;justify-content:space-between;font-size:14px;font-weight:600;}
+  #variantB .tlnode .row2{font-size:12px;color:var(--text-dim);margin-top:3px;}
+  #variantB .tlnode.charge .row1 .metric{color:var(--charge);}
+  #variantB .tlnode.drive .row1 .metric{color:var(--accent2);}
+
+  /* ---------- VARIANT C: dashboard grid / analytics ---------- */
+  #variantC .kpi{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px;}
+  #variantC .kpi .stat{padding:14px;}
+  #variantC .kpi .v{font-size:22px;}
+  #variantC .kpi .stat.wide{grid-column:1 / -1;display:flex;align-items:center;
+    justify-content:space-between;}
+  #variantC .mapfake{height:170px;margin-top:14px;}
+  #variantC table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px;}
+  #variantC table th{text-align:left;color:var(--text-dim);font-weight:500;font-size:10.5px;
+    text-transform:uppercase;letter-spacing:.04em;padding:6px 6px;border-bottom:1px solid var(--border);}
+  #variantC table td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top;}
+  #variantC table tr:last-child td{border-bottom:none;}
+  #variantC .tag{font-size:10px;padding:2px 6px;border-radius:20px;}
+  #variantC .tag.drive{background:#1a2740;color:var(--accent2);}
+  #variantC .tag.charge{background:var(--charge-dim);color:var(--charge);}
+
+  /* switcher */
+  .switcher{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:50;
+    display:flex;align-items:center;gap:2px;background:#1c2531;border:1px solid #2c3a4d;
+    border-radius:40px;box-shadow:0 8px 30px rgba(0,0,0,.5);padding:4px;}
+  .switcher button{width:38px;height:38px;border-radius:50%;border:none;background:transparent;
+    color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .switcher button:hover{background:#28344530;}
+  .switcher .label{font-size:12.5px;padding:0 12px;color:var(--text);white-space:nowrap;font-weight:600;}
+  .switcher .label small{display:block;font-weight:400;color:var(--text-dim);font-size:10.5px;
+    text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="appbar container" style="max-width:none;">
+  <div class="back">‹</div>
+  <div class="title">
+    <h1>Milano → Côte d'Azur</h1>
+    <div class="sub">14–16 Aug 2026</div>
+  </div>
+  <div class="veh">🚗 Electra</div>
+</div>
+
+<!-- ============ VARIANT A — map-first / immersive ============ -->
+<section id="variantA">
+  <div class="herowrap">
+    <div class="mapfake">
+      <svg viewBox="0 0 400 300" preserveAspectRatio="none">
+        <path class="route" d="M40,40 C120,60 100,140 190,150 S320,120 360,240" />
+        <g class="pin"><circle cx="40" cy="40" r="6" fill="#3ddc97"/></g>
+        <g class="pin"><circle cx="190" cy="150" r="6" fill="#ffb454"/></g>
+        <g class="pin"><circle cx="300" cy="130" r="6" fill="#ffb454"/></g>
+        <g class="pin"><circle cx="360" cy="240" r="7" fill="#5b8cff"/></g>
+      </svg>
+      <div class="label">Route preview · Mapbox in production</div>
+    </div>
+    <div class="sheet container">
+      <div class="grabber"></div>
+      <div class="statrow">
+        <div class="stat"><div class="v">842 km</div><div class="l">Distance</div></div>
+        <div class="stat"><div class="v">8h20</div><div class="l">Driving</div></div>
+        <div class="stat"><div class="v">1h45</div><div class="l">Charging</div></div>
+        <div class="stat"><div class="v">Free</div><div class="l">Cost</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2 class="sectiontitle">Chart</h2>
+    <div class="chart">
+      <div class="hd"><span>Battery %</span><span>100 → 18 → 92 → 34%</span></div>
+      <svg viewBox="0 0 300 90" preserveAspectRatio="none">
+        <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#3ddc97" stop-opacity=".6"/>
+          <stop offset="1" stop-color="#3ddc97" stop-opacity="0"/>
+        </linearGradient></defs>
+        <polygon class="fill" points="0,90 0,10 60,70 90,70 90,15 180,60 210,60 210,25 300,55 300,90"/>
+        <polyline class="line" points="0,10 60,70 90,70 90,15 180,60 210,60 210,25 300,55"/>
+      </svg>
+    </div>
+
+    <h2 class="sectiontitle">Legs</h2>
+    <div class="legs"></div>
+  </div>
+</section>
+
+<!-- ============ VARIANT B — timeline / journal ============ -->
+<section id="variantB" class="hide">
+  <div class="container">
+    <div class="statscroll">
+      <div class="stat"><div class="v">842 km</div><div class="l">Distance</div></div>
+      <div class="stat"><div class="v">8h20</div><div class="l">Driving</div></div>
+      <div class="stat"><div class="v">1h45</div><div class="l">Charging</div></div>
+      <div class="stat"><div class="v">210 kWh</div><div class="l">Added</div></div>
+      <div class="stat"><div class="v">Free</div><div class="l">Cost</div></div>
+    </div>
+
+    <div class="mapfake">
+      <svg viewBox="0 0 400 150" preserveAspectRatio="none">
+        <path class="route" d="M40,110 C120,120 100,40 190,60 S320,90 360,30" />
+        <g class="pin"><circle cx="40" cy="110" r="5" fill="#3ddc97"/></g>
+        <g class="pin"><circle cx="190" cy="60" r="5" fill="#ffb454"/></g>
+        <g class="pin"><circle cx="300" cy="80" r="5" fill="#ffb454"/></g>
+        <g class="pin"><circle cx="360" cy="30" r="6" fill="#5b8cff"/></g>
+      </svg>
+      <div class="label">Route preview · Mapbox in production</div>
+    </div>
+
+    <h2 class="sectiontitle">Journal</h2>
+    <div class="tl"></div>
+  </div>
+</section>
+
+<!-- ============ VARIANT C — dashboard grid / analytics ============ -->
+<section id="variantC" class="hide">
+  <div class="container">
+    <div class="mapfake" style="margin-top:14px;">
+      <svg viewBox="0 0 400 170" preserveAspectRatio="none">
+        <path class="route" d="M30,30 C150,20 120,130 220,120 S340,60 380,140" />
+        <g class="pin"><circle cx="30" cy="30" r="5" fill="#3ddc97"/></g>
+        <g class="pin"><circle cx="220" cy="120" r="5" fill="#ffb454"/></g>
+        <g class="pin"><circle cx="330" cy="80" r="5" fill="#ffb454"/></g>
+        <g class="pin"><circle cx="380" cy="140" r="6" fill="#5b8cff"/></g>
+      </svg>
+      <div class="label">Route preview · Mapbox in production</div>
+    </div>
+
+    <h2 class="sectiontitle">Battery over trip</h2>
+    <div class="chart">
+      <svg viewBox="0 0 300 90" preserveAspectRatio="none">
+        <polyline class="line" points="0,10 60,70 90,70 90,15 180,60 210,60 210,25 300,55"/>
+      </svg>
+    </div>
+
+    <h2 class="sectiontitle">Legs</h2>
+    <table>
+      <thead><tr><th>Leg</th><th>Place</th><th>Time</th><th style="text-align:right;">Stat</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h2 class="sectiontitle">Trip totals</h2>
+    <div class="kpi" style="margin-top:0;">
+      <div class="stat"><div class="v">842 km</div><div class="l">Distance</div></div>
+      <div class="stat"><div class="v">8h20</div><div class="l">Driving time</div></div>
+      <div class="stat"><div class="v">1h45</div><div class="l">Charging time</div></div>
+      <div class="stat"><div class="v">210 kWh</div><div class="l">Energy added</div></div>
+      <div class="stat wide"><div><div class="l" style="margin:0;">Total cost</div>
+        <div class="v" style="margin-top:2px;">Free <span style="font-size:11px;color:var(--text-dim);font-weight:400;">(2 free superchargers)</span></div></div>
+        <div style="font-size:22px;">⚡</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="switcher">
+  <button id="prev" aria-label="Previous variant">‹</button>
+  <div class="label" id="label">A<small>Map-first</small></div>
+  <button id="next" aria-label="Next variant">›</button>
+</div>
+
+<script>
+const legs = [
+  {type:'drive',  icon:'🚗', place:'Home — Milano', end:'Autogrill Secchia Ovest', start:'09:12', endt:'10:47', dur:'1h35', metric:'178 km'},
+  {type:'charge', icon:'⚡', place:'Supercharger — Modena Nord', start:'10:47', endt:'11:15', dur:'28 min', metric:'+42 kWh', extra:'Free'},
+  {type:'drive',  icon:'🚗', place:'Modena Nord', end:'Aire de Nice-Est', start:'11:15', endt:'14:40', dur:'3h25', metric:'312 km'},
+  {type:'charge', icon:'⚡', place:'Supercharger — Nice Saint-Isidore', start:'14:40', endt:'15:12', dur:'32 min', metric:'+38 kWh', extra:'Free'},
+  {type:'drive',  icon:'🚗', place:'Nice Saint-Isidore', end:'Villa — Côte d\'Azur', start:'15:12', endt:'18:47', dur:'3h35', metric:'352 km'},
+];
+
+// Variant A: simple leg list
+document.querySelector('#variantA .legs').innerHTML = legs.map(l => `
+  <div class="leg ${l.type}">
+    <div class="icon">${l.icon}</div>
+    <div class="body">
+      <div class="row1">
+        <div class="place">${l.place}${l.end ? ' → ' + l.end : ''}</div>
+        <div class="metric">${l.metric}</div>
+      </div>
+      <div class="row2">${l.start}–${l.endt} · ${l.dur}${l.extra ? ' · ' + l.extra : ''}
+        <span class="edit">edit name</span>
+      </div>
+    </div>
+  </div>
+`).join('');
+
+// Variant B: timeline nodes
+document.querySelector('#variantB .tl').innerHTML = legs.map(l => `
+  <div class="tlnode ${l.type}">
+    <div class="dot">${l.icon}</div>
+    <div class="card">
+      <div class="row1"><span>${l.place}${l.end ? ' → ' + l.end : ''}</span><span class="metric">${l.metric}</span></div>
+      <div class="row2">${l.start}–${l.endt} · ${l.dur}${l.extra ? ' · ' + l.extra : ''}</div>
+    </div>
+  </div>
+`).join('');
+
+// Variant C: table
+document.querySelector('#variantC tbody').innerHTML = legs.map(l => `
+  <tr>
+    <td><span class="tag ${l.type}">${l.type === 'drive' ? 'Drive' : 'Charge'}</span></td>
+    <td>${l.place}${l.end ? '<br><span style="color:var(--text-dim)">→ ' + l.end + '</span>' : ''}</td>
+    <td>${l.start}–${l.endt}<br><span style="color:var(--text-dim)">${l.dur}</span></td>
+    <td style="text-align:right;font-weight:600;">${l.metric}${l.extra ? '<br><span style="color:var(--text-dim);font-weight:400;">' + l.extra + '</span>' : ''}</td>
+  </tr>
+`).join('');
+
+// ---- switcher ----
+const variants = [
+  {key:'A', name:'Map-first'},
+  {key:'B', name:'Timeline'},
+  {key:'C', name:'Analytics'},
+];
+function currentIndex(){
+  const p = new URLSearchParams(location.search).get('variant') || 'A';
+  const i = variants.findIndex(v => v.key === p.toUpperCase());
+  return i === -1 ? 0 : i;
+}
+function render(i){
+  variants.forEach((v, idx) => {
+    document.getElementById('variant' + v.key).classList.toggle('hide', idx !== i);
+  });
+  document.getElementById('label').innerHTML = variants[i].key + '<small>' + variants[i].name + '</small>';
+  const url = new URL(location.href);
+  url.searchParams.set('variant', variants[i].key);
+  history.replaceState(null, '', url);
+}
+function go(delta){
+  const i = (currentIndex() + delta + variants.length) % variants.length;
+  render(i);
+}
+document.getElementById('prev').addEventListener('click', () => go(-1));
+document.getElementById('next').addEventListener('click', () => go(1));
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+  if (e.key === 'ArrowLeft') go(-1);
+  if (e.key === 'ArrowRight') go(1);
+});
+render(currentIndex());
+</script>
+</body>
+</html>
