@@ -80,6 +80,18 @@ export async function listChargeSessionsByTrip(tripId: string): Promise<ChargeSe
   return docs.map(toChargeSession);
 }
 
+// Used by the All-time Stats page to aggregate across every completed Trip
+// for a Vehicle in a single query.
+export async function listChargeSessionsByTripIds(tripIds: string[]): Promise<ChargeSession[]> {
+  if (tripIds.length === 0) return [];
+  const collection = await getChargeSessionsCollection();
+  const docs = await collection
+    .find({ tripId: { $in: tripIds.map((id) => new ObjectId(id)) } })
+    .sort({ startedAt: 1 })
+    .toArray();
+  return docs.map(toChargeSession);
+}
+
 // Replaces the full set of ChargeSessions for a trip with the freshly
 // derived + geocoded set. Safe because the caller (syncTripDerivedData)
 // recomputes from the full PollSnapshot history each time and carries

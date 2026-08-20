@@ -76,6 +76,18 @@ export async function listDriveSegmentsByTrip(tripId: string): Promise<DriveSegm
   return docs.map(toDriveSegment);
 }
 
+// Used by the All-time Stats page to aggregate across every completed Trip
+// for a Vehicle in a single query.
+export async function listDriveSegmentsByTripIds(tripIds: string[]): Promise<DriveSegment[]> {
+  if (tripIds.length === 0) return [];
+  const collection = await getDriveSegmentsCollection();
+  const docs = await collection
+    .find({ tripId: { $in: tripIds.map((id) => new ObjectId(id)) } })
+    .sort({ startedAt: 1 })
+    .toArray();
+  return docs.map(toDriveSegment);
+}
+
 // Replaces the full set of DriveSegments for a trip with the freshly
 // derived + geocoded set. Safe because the caller (syncTripDerivedData)
 // recomputes from the full PollSnapshot history each time and carries

@@ -125,16 +125,21 @@ export default function TripListPage() {
     <div className={styles.page}>
       <div className={`${styles.appbar} ${styles.container}`} style={{ maxWidth: "none" }}>
         <h1>Trips</h1>
-        <button
-          type="button"
-          className={styles.startButton}
-          disabled={busy || !selectedVehicleId || !!activeTrip}
-          onClick={handleStart}
-          aria-label="Start trip"
-          title={activeTrip ? "A trip is already in progress" : "Start trip"}
-        >
-          +
-        </button>
+        <div className={styles.appbarActions}>
+          <Link href="/stats" className={styles.statsButton} aria-label="All-time stats">
+            📊
+          </Link>
+          <button
+            type="button"
+            className={styles.startButton}
+            disabled={busy || !selectedVehicleId || !!activeTrip}
+            onClick={handleStart}
+            aria-label="Start trip"
+            title={activeTrip ? "A trip is already in progress" : "Start trip"}
+          >
+            +
+          </button>
+        </div>
       </div>
 
       <div className={styles.container}>

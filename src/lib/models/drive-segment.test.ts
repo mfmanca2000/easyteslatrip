@@ -96,6 +96,28 @@ describe("listDriveSegmentsByTrip", () => {
   });
 });
 
+describe("listDriveSegmentsByTripIds", () => {
+  it("returns an empty array without querying when given no trip ids", async () => {
+    const findCallsBefore = find.mock.calls.length;
+    const { listDriveSegmentsByTripIds } = await import("./drive-segment");
+
+    const segments = await listDriveSegmentsByTripIds([]);
+
+    expect(segments).toEqual([]);
+    expect(find.mock.calls.length).toBe(findCallsBefore);
+  });
+
+  it("queries with $in across the given trip ids", async () => {
+    sort.mockReturnValue({ toArray: () => Promise.resolve([]) });
+    const { listDriveSegmentsByTripIds } = await import("./drive-segment");
+
+    await listDriveSegmentsByTripIds([TRIP_ID]);
+
+    expect(find).toHaveBeenCalledWith({ tripId: { $in: [expect.anything()] } });
+    expect(sort).toHaveBeenCalledWith({ startedAt: 1 });
+  });
+});
+
 describe("updateDriveSegment", () => {
   beforeEach(() => {
     findOneAndUpdate.mockReset();

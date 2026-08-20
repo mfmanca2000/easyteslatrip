@@ -93,6 +93,28 @@ describe("listChargeSessionsByTrip", () => {
   });
 });
 
+describe("listChargeSessionsByTripIds", () => {
+  it("returns an empty array without querying when given no trip ids", async () => {
+    const findCallsBefore = find.mock.calls.length;
+    const { listChargeSessionsByTripIds } = await import("./charge-session");
+
+    const sessions = await listChargeSessionsByTripIds([]);
+
+    expect(sessions).toEqual([]);
+    expect(find.mock.calls.length).toBe(findCallsBefore);
+  });
+
+  it("queries with $in across the given trip ids", async () => {
+    sort.mockReturnValue({ toArray: () => Promise.resolve([]) });
+    const { listChargeSessionsByTripIds } = await import("./charge-session");
+
+    await listChargeSessionsByTripIds([TRIP_ID]);
+
+    expect(find).toHaveBeenCalledWith({ tripId: { $in: [expect.anything()] } });
+    expect(sort).toHaveBeenCalledWith({ startedAt: 1 });
+  });
+});
+
 describe("updateChargeSession", () => {
   beforeEach(() => {
     findOneAndUpdate.mockReset();
