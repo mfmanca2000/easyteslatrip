@@ -68,4 +68,38 @@ describe("POST /api/vehicles", () => {
 
     expect(response.status).toBe(400);
   });
+
+  it("creates a vehicle with a battery capacity", async () => {
+    createVehicle.mockResolvedValue({
+      id: "veh1",
+      name: "Electra",
+      entityPrefix: "electra",
+      batteryCapacityKwh: 75,
+      createdAt: "2026-08-20T00:00:00.000Z",
+    });
+    const { POST } = await import("./route");
+    const request = new NextRequest("http://localhost/api/vehicles", {
+      method: "POST",
+      body: JSON.stringify({ name: "Electra", entityPrefix: "electra", batteryCapacityKwh: 75 }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(createVehicle).toHaveBeenCalledWith({ name: "Electra", entityPrefix: "electra", batteryCapacityKwh: 75 });
+    expect(body.vehicle.batteryCapacityKwh).toBe(75);
+  });
+
+  it("rejects a non-positive battery capacity", async () => {
+    const { POST } = await import("./route");
+    const request = new NextRequest("http://localhost/api/vehicles", {
+      method: "POST",
+      body: JSON.stringify({ name: "Electra", entityPrefix: "electra", batteryCapacityKwh: 0 }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(400);
+  });
 });

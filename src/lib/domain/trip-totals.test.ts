@@ -5,8 +5,20 @@ describe("computeTripTotals", () => {
   it("sums distance and driving time across drive segments", () => {
     const totals = computeTripTotals(
       [
-        { startedAt: "2026-08-20T07:00:00.000Z", endedAt: "2026-08-20T08:00:00.000Z", distanceKm: 100 },
-        { startedAt: "2026-08-20T09:00:00.000Z", endedAt: "2026-08-20T09:30:00.000Z", distanceKm: 40 },
+        {
+          startedAt: "2026-08-20T07:00:00.000Z",
+          endedAt: "2026-08-20T08:00:00.000Z",
+          distanceKm: 100,
+          startBatteryLevel: 80,
+          endBatteryLevel: 65,
+        },
+        {
+          startedAt: "2026-08-20T09:00:00.000Z",
+          endedAt: "2026-08-20T09:30:00.000Z",
+          distanceKm: 40,
+          startBatteryLevel: 65,
+          endBatteryLevel: 59,
+        },
       ],
       [],
     );
@@ -17,7 +29,15 @@ describe("computeTripTotals", () => {
 
   it("ignores an open (still-driving) segment's duration", () => {
     const totals = computeTripTotals(
-      [{ startedAt: "2026-08-20T07:00:00.000Z", endedAt: null, distanceKm: null }],
+      [
+        {
+          startedAt: "2026-08-20T07:00:00.000Z",
+          endedAt: null,
+          distanceKm: null,
+          startBatteryLevel: 80,
+          endBatteryLevel: null,
+        },
+      ],
       [],
     );
 
@@ -87,5 +107,40 @@ describe("computeTripTotals", () => {
     );
     expect(totals.totalCost).toBe(0);
     expect(totals.allChargesFree).toBe(false);
+  });
+
+  it("computes Wh/km from battery % drop across drive segments when a battery capacity is given", () => {
+    const totals = computeTripTotals(
+      [
+        {
+          startedAt: "2026-08-20T07:00:00.000Z",
+          endedAt: "2026-08-20T08:00:00.000Z",
+          distanceKm: 100,
+          startBatteryLevel: 80,
+          endBatteryLevel: 70,
+        },
+      ],
+      [],
+      75,
+    );
+
+    expect(totals.whPerKm).toBeCloseTo(75, 5);
+  });
+
+  it("reports null Wh/km when the vehicle has no configured battery capacity", () => {
+    const totals = computeTripTotals(
+      [
+        {
+          startedAt: "2026-08-20T07:00:00.000Z",
+          endedAt: "2026-08-20T08:00:00.000Z",
+          distanceKm: 100,
+          startBatteryLevel: 80,
+          endBatteryLevel: 70,
+        },
+      ],
+      [],
+    );
+
+    expect(totals.whPerKm).toBeNull();
   });
 });

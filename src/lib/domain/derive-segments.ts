@@ -19,6 +19,8 @@ export interface DerivedDriveSegment {
   startOdometer: number;
   endOdometer: number | null;
   distanceKm: number | null;
+  startBatteryLevel: number;
+  endBatteryLevel: number | null;
   startLatitude: number;
   startLongitude: number;
   endLatitude: number | null;
@@ -57,6 +59,8 @@ function buildDriveSegment(
     startOdometer: start.odometer,
     endOdometer: end ? end.odometer : null,
     distanceKm: end ? end.odometer - start.odometer : null,
+    startBatteryLevel: start.batteryLevel,
+    endBatteryLevel: end ? end.batteryLevel : null,
     startLatitude: start.latitude,
     startLongitude: start.longitude,
     endLatitude: end ? end.latitude : null,

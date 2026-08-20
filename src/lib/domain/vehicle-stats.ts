@@ -17,8 +17,9 @@ export function computeVehicleStats(
   tripCount: number,
   driveSegments: TripTotalsDriveSegmentInput[],
   chargeSessions: TripTotalsChargeSessionInput[],
+  batteryCapacityKwh: number | null = null,
 ): VehicleStats {
-  const totals = computeTripTotals(driveSegments, chargeSessions);
+  const totals = computeTripTotals(driveSegments, chargeSessions, batteryCapacityKwh);
   const avgSpeedKmh = totals.drivingMinutes > 0 ? totals.distanceKm / (totals.drivingMinutes / 60) : 0;
 
   return { ...totals, tripCount, avgSpeedKmh };

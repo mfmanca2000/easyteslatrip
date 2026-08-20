@@ -39,11 +39,11 @@ describe("deriveSegments — DriveSegment", () => {
 
   it("closes the segment after 2 consecutive non-driving samples", () => {
     const snapshots: SnapshotInput[] = [
-      snapshot({ minute: 0, shiftState: "D", odometer: 15000 }),
-      snapshot({ minute: 5, shiftState: "D", odometer: 15005 }),
-      snapshot({ minute: 10, shiftState: "P", odometer: 15005 }),
-      snapshot({ minute: 15, shiftState: "P", odometer: 15005 }),
-      snapshot({ minute: 20, shiftState: "D", odometer: 15020 }),
+      snapshot({ minute: 0, shiftState: "D", odometer: 15000, batteryLevel: 80 }),
+      snapshot({ minute: 5, shiftState: "D", odometer: 15005, batteryLevel: 78 }),
+      snapshot({ minute: 10, shiftState: "P", odometer: 15005, batteryLevel: 78 }),
+      snapshot({ minute: 15, shiftState: "P", odometer: 15005, batteryLevel: 78 }),
+      snapshot({ minute: 20, shiftState: "D", odometer: 15020, batteryLevel: 78 }),
     ];
 
     const { driveSegments } = deriveSegments(snapshots);
@@ -52,8 +52,11 @@ describe("deriveSegments — DriveSegment", () => {
     expect(driveSegments[0].endedAt).toEqual(new Date(2026, 7, 20, 7, 5));
     expect(driveSegments[0].endOdometer).toBe(15005);
     expect(driveSegments[0].distanceKm).toBe(5);
+    expect(driveSegments[0].startBatteryLevel).toBe(80);
+    expect(driveSegments[0].endBatteryLevel).toBe(78);
     expect(driveSegments[1].startOdometer).toBe(15020);
     expect(driveSegments[1].endedAt).toBeNull();
+    expect(driveSegments[1].endBatteryLevel).toBeNull();
   });
 });
 

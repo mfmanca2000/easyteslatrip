@@ -29,7 +29,12 @@ export async function GET(
     listChargeSessionsByTripIds(completedTripIds),
   ]);
 
-  const stats = computeVehicleStats(completedTripIds.length, driveSegments, chargeSessions);
+  const stats = computeVehicleStats(
+    completedTripIds.length,
+    driveSegments,
+    chargeSessions,
+    vehicle.batteryCapacityKwh,
+  );
 
   return NextResponse.json({ vehicle, stats });
 }
