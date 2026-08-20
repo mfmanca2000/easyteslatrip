@@ -35,6 +35,12 @@ export async function listVehicles(): Promise<Vehicle[]> {
   return docs.map(toVehicle);
 }
 
+export async function getVehicleById(id: string): Promise<Vehicle | null> {
+  const collection = await getVehiclesCollection();
+  const doc = await collection.findOne({ _id: new ObjectId(id) });
+  return doc ? toVehicle(doc) : null;
+}
+
 export async function createVehicle(input: {
   name: string;
   entityPrefix: string;

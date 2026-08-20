@@ -5,8 +5,8 @@ export default NextAuth(authConfig).auth;
 
 export const config = {
   // Everything except NextAuth's own routes, the unauthenticated health check
-  // (hit by the deploy pipeline / uptime monitors), and Next's static/internal
-  // assets. The future HA-polling trigger endpoint gets its own carve-out in a
-  // later ticket.
-  matcher: ["/((?!api/auth|api/health|_next/static|_next/image|favicon.ico).*)"],
+  // (hit by the deploy pipeline / uptime monitors), the HA-polling trigger
+  // endpoint (machine-to-machine, gated by its own bearer secret instead of
+  // the human session), and Next's static/internal assets.
+  matcher: ["/((?!api/auth|api/health|api/poll|_next/static|_next/image|favicon.ico).*)"],
 };

@@ -76,6 +76,14 @@ export async function getActiveTrip(vehicleId: string): Promise<Trip | null> {
   return doc ? toTrip(doc) : null;
 }
 
+// Used by the poll-trigger endpoint, which checks across all vehicles
+// before deciding whether to call HA at all.
+export async function getAnyActiveTrip(): Promise<Trip | null> {
+  const collection = await getTripsCollection();
+  const doc = await collection.findOne({ endedAt: null });
+  return doc ? toTrip(doc) : null;
+}
+
 export async function startTrip(vehicleId: string): Promise<Trip> {
   const collection = await getTripsCollection();
   const doc: TripDoc = {
