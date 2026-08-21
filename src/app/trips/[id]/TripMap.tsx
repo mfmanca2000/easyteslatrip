@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import styles from "./page.module.css";
 
@@ -36,6 +36,13 @@ function buildCurrentPositionElement(): HTMLDivElement {
 export default function TripMap({ routeLog, pins }: TripMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  // The mapbox-gl dynamic import/init previously had no failure path at all:
+  // a rejected import or a Mapbox "error" event (invalid style, failed tile
+  // auth, no WebGL) left the container permanently blank with nothing in the
+  // console and zero network calls ever reaching Mapbox — indistinguishable
+  // from "still loading." Surfacing it here turns that into a visible,
+  // debuggable state instead of silent failure.
+  const [mapError, setMapError] = useState<string | null>(null);
   // A stable content fingerprint, not the array references: unrelated edits
   // elsewhere on the page (e.g. a leg's cost) produce new routeLog/pins
   // array instances on every render, which would otherwise tear down and
@@ -55,50 +62,66 @@ export default function TripMap({ routeLog, pins }: TripMapProps) {
 
     let map: import("mapbox-gl").Map | undefined;
     let cancelled = false;
+    setMapError(null);
 
-    import("mapbox-gl").then((mapboxgl) => {
-      if (cancelled || !containerRef.current) return;
-      mapboxgl.default.accessToken = token;
+    import("mapbox-gl")
+      .then((mapboxgl) => {
+        if (cancelled || !containerRef.current) return;
+        mapboxgl.default.accessToken = token;
 
-      const bounds = new mapboxgl.default.LngLatBounds();
-      routeLog.forEach((point) => bounds.extend([point.longitude, point.latitude]));
+        const bounds = new mapboxgl.default.LngLatBounds();
+        routeLog.forEach((point) => bounds.extend([point.longitude, point.latitude]));
 
-      map = new mapboxgl.default.Map({
-        container: containerRef.current,
-        style: "mapbox://styles/mapbox/dark-v11",
-        bounds,
-        fitBoundsOptions: { padding: 32 },
-      });
+        map = new mapboxgl.default.Map({
+          container: containerRef.current,
+          style: "mapbox://styles/mapbox/dark-v11",
+          bounds,
+          fitBoundsOptions: { padding: 32 },
+        });
 
-      map.on("load", () => {
-        if (!map) return;
-        map.addSource("route", {
-          type: "geojson",
-          data: {
-            type: "Feature",
-            properties: {},
-            geometry: {
-              type: "LineString",
-              coordinates: routeLog.map((point) => [point.longitude, point.latitude]),
+        // mapbox-gl reports most runtime failures (bad style, tile/auth
+        // rejection, missing WebGL) as an "error" event rather than a thrown
+        // exception — without this handler they vanish silently.
+        map.on("error", (event) => {
+          console.error("Mapbox GL error", event.error);
+          if (!cancelled) setMapError(event.error?.message ?? "Unknown Mapbox error");
+        });
+
+        map.on("load", () => {
+          if (!map) return;
+          map.addSource("route", {
+            type: "geojson",
+            data: {
+              type: "Feature",
+              properties: {},
+              geometry: {
+                type: "LineString",
+                coordinates: routeLog.map((point) => [point.longitude, point.latitude]),
+              },
             },
-          },
-        });
-        map.addLayer({
-          id: "route-line",
-          type: "line",
-          source: "route",
-          paint: { "line-color": "#5b8cff", "line-width": 3, "line-dasharray": [2, 1.5] },
-        });
+          });
+          map.addLayer({
+            id: "route-line",
+            type: "line",
+            source: "route",
+            paint: { "line-color": "#5b8cff", "line-width": 3, "line-dasharray": [2, 1.5] },
+          });
 
-        pins.forEach((pin) => {
-          const marker =
-            pin.kind === "current"
-              ? new mapboxgl.default.Marker({ element: buildCurrentPositionElement() })
-              : new mapboxgl.default.Marker({ color: PIN_COLOR[pin.kind] });
-          marker.setLngLat([pin.longitude, pin.latitude]).addTo(map!);
+          pins.forEach((pin) => {
+            const marker =
+              pin.kind === "current"
+                ? new mapboxgl.default.Marker({ element: buildCurrentPositionElement() })
+                : new mapboxgl.default.Marker({ color: PIN_COLOR[pin.kind] });
+            marker.setLngLat([pin.longitude, pin.latitude]).addTo(map!);
+          });
         });
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to load mapbox-gl", error);
+        if (!cancelled) {
+          setMapError(error instanceof Error ? error.message : "Failed to load the map library");
+        }
       });
-    });
 
     return () => {
       cancelled = true;
@@ -107,11 +130,15 @@ export default function TripMap({ routeLog, pins }: TripMapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on content signatures, not array identity; see comment above
   }, [token, routeSignature, pinsSignature]);
 
-  if (!token || routeLog.length === 0) {
+  if (!token || routeLog.length === 0 || mapError) {
     return (
       <div className={styles.mapfake}>
         <div className={styles.mapLabel}>
-          {routeLog.length === 0 ? "No route data yet" : "Map unavailable — set NEXT_PUBLIC_MAPBOX_TOKEN"}
+          {mapError
+            ? `Map failed to load: ${mapError}`
+            : routeLog.length === 0
+              ? "No route data yet"
+              : "Map unavailable — set NEXT_PUBLIC_MAPBOX_TOKEN"}
         </div>
       </div>
     );
