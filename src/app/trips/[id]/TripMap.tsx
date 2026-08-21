@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
+import "./mapbox-fallback.css";
 import styles from "./page.module.css";
 
 export interface MapPin {
@@ -61,6 +62,7 @@ export default function TripMap({ routeLog, pins }: TripMapProps) {
     if (!token || !containerRef.current || routeLog.length === 0) return;
 
     let map: import("mapbox-gl").Map | undefined;
+    let resizeObserver: ResizeObserver | undefined;
     let cancelled = false;
     setMapError(null);
 
@@ -86,6 +88,13 @@ export default function TripMap({ routeLog, pins }: TripMapProps) {
           console.error("Mapbox GL error", event.error);
           if (!cancelled) setMapError(event.error?.message ?? "Unknown Mapbox error");
         });
+
+        // Self-corrects regardless of *why* the container was mismeasured
+        // at construction time (CSS not applied yet, a streamed stylesheet
+        // still loading, etc.) — any subsequent real size change re-fits
+        // the map to it, instead of relying on a single resize() guess.
+        resizeObserver = new ResizeObserver(() => map?.resize());
+        resizeObserver.observe(containerRef.current);
 
         map.on("load", () => {
           if (!map) return;
@@ -132,6 +141,7 @@ export default function TripMap({ routeLog, pins }: TripMapProps) {
 
     return () => {
       cancelled = true;
+      resizeObserver?.disconnect();
       map?.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on content signatures, not array identity; see comment above

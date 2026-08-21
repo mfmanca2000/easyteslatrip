@@ -1,0 +1,32 @@
+/* Duplicates mapbox-gl/dist/mapbox-gl.css's layout-critical rules as a
+   plain (non-CSS-Module) stylesheet — the same mechanism that file itself
+   uses — instead of trying to express them inside page.module.css via
+   :global(), whose interaction with scoped selectors isn't reliable across
+   CSS Modules implementations. Without these, .mapboxgl-canvas has no
+   `position: absolute`, so the canvas (and its marker overlays, which
+   position themselves relative to their nearest positioned ancestor) render
+   at their natural size/position in normal document flow instead of
+   overlaid on and clipped to .mapfake — which is why the map appeared
+   entirely blank despite mapbox-gl successfully fetching style/tiles and
+   computing marker positions.
+
+   Belt-and-suspenders alongside mapbox-gl's own stylesheet, which is still
+   imported too in case it's a bundling-order issue rather than an absence. */
+
+.mapboxgl-map {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+.mapboxgl-canvas-container {
+  position: absolute;
+  inset: 0;
+}
+
+.mapboxgl-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
