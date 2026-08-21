@@ -89,6 +89,13 @@ export default function TripMap({ routeLog, pins }: TripMapProps) {
 
         map.on("load", () => {
           if (!map) return;
+          // Belt-and-suspenders alongside the CSS fix in page.module.css:
+          // mapbox-gl measures its container once at construction time, so
+          // if that measurement raced ahead of layout settling, forcing a
+          // re-measure (and re-fitting the bounds against the corrected
+          // size) here fixes it.
+          map.resize();
+          map.fitBounds(bounds, { padding: 32 });
           map.addSource("route", {
             type: "geojson",
             data: {
