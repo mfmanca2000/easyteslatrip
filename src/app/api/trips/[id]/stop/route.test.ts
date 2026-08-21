@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 const stopTrip = vi.fn();
+const syncTripDerivedData = vi.fn();
 
 vi.mock("@/lib/models/trip", () => ({
   stopTrip: (...args: unknown[]) => stopTrip(...args),
+}));
+vi.mock("@/lib/domain/sync-trip-derived-data", () => ({
+  syncTripDerivedData: (...args: unknown[]) => syncTripDerivedData(...args),
 }));
 
 const TRIP_ID = "507f1f77bcf86cd799439099";
@@ -11,6 +15,7 @@ const TRIP_ID = "507f1f77bcf86cd799439099";
 describe("POST /api/trips/[id]/stop", () => {
   it("stops the trip", async () => {
     stopTrip.mockResolvedValue({ id: TRIP_ID, vehicleId: "v1", startedAt: "s", endedAt: "e" });
+    syncTripDerivedData.mockResolvedValue(undefined);
     const { POST } = await import("./route");
 
     const response = await POST(new Request("http://localhost"), {
@@ -20,6 +25,30 @@ describe("POST /api/trips/[id]/stop", () => {
 
     expect(response.status).toBe(200);
     expect(body.trip.endedAt).toBe("e");
+  });
+
+  it("closes trailing drive/charge data now that the trip has stopped", async () => {
+    stopTrip.mockResolvedValue({ id: TRIP_ID, vehicleId: "v1", startedAt: "s", endedAt: "e" });
+    syncTripDerivedData.mockResolvedValue(undefined);
+    const { POST } = await import("./route");
+
+    await POST(new Request("http://localhost"), {
+      params: Promise.resolve({ id: TRIP_ID }),
+    });
+
+    expect(syncTripDerivedData).toHaveBeenCalledWith(TRIP_ID, "v1", { tripEnded: true });
+  });
+
+  it("still stops the trip when the sync fails", async () => {
+    stopTrip.mockResolvedValue({ id: TRIP_ID, vehicleId: "v1", startedAt: "s", endedAt: "e" });
+    syncTripDerivedData.mockRejectedValue(new Error("Mapbox down"));
+    const { POST } = await import("./route");
+
+    const response = await POST(new Request("http://localhost"), {
+      params: Promise.resolve({ id: TRIP_ID }),
+    });
+
+    expect(response.status).toBe(200);
   });
 
   it("returns 404 when the trip is not active", async () => {

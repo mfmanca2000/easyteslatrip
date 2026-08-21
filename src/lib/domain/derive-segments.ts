@@ -68,7 +68,19 @@ function buildDriveSegment(
   };
 }
 
-export function deriveSegments(snapshots: SnapshotInput[]): DerivedResult {
+export interface DeriveSegmentsOptions {
+  // Set once the owning Trip has been manually stopped: there will be no
+  // further PollSnapshots, so a still-open DriveSegment/ChargeSession would
+  // otherwise stay open forever (never geocoded, never counted in Trip
+  // totals). Closes each using the last sample seen for it instead of
+  // leaving it open — the best data that will ever exist for it.
+  closeTrailing?: boolean;
+}
+
+export function deriveSegments(
+  snapshots: SnapshotInput[],
+  options: DeriveSegmentsOptions = {},
+): DerivedResult {
   const driveSegments: DerivedDriveSegment[] = [];
   const chargeSessions: DerivedChargeSession[] = [];
   const routeLog: RoutePoint[] = [];
@@ -81,6 +93,7 @@ export function deriveSegments(snapshots: SnapshotInput[]): DerivedResult {
   let pendingNonDrive: SnapshotInput[] = [];
 
   let openCharge: DerivedChargeSession | null = null;
+  let lastChargeSample: SnapshotInput | null = null;
 
   for (const snapshot of snapshots) {
     routeLog.push({
@@ -105,16 +118,19 @@ export function deriveSegments(snapshots: SnapshotInput[]): DerivedResult {
     }
 
     // --- ChargeSession state machine ---
-    if (snapshot.chargingState === "Charging" && !openCharge) {
-      openCharge = {
-        startedAt: snapshot.polledAt,
-        endedAt: null,
-        startBatteryLevel: snapshot.batteryLevel,
-        endBatteryLevel: null,
-        energyAdded: null,
-        latitude: snapshot.latitude,
-        longitude: snapshot.longitude,
-      };
+    if (snapshot.chargingState === "Charging") {
+      if (!openCharge) {
+        openCharge = {
+          startedAt: snapshot.polledAt,
+          endedAt: null,
+          startBatteryLevel: snapshot.batteryLevel,
+          endBatteryLevel: null,
+          energyAdded: null,
+          latitude: snapshot.latitude,
+          longitude: snapshot.longitude,
+        };
+      }
+      lastChargeSample = snapshot;
     } else if (openCharge && snapshot.chargingState === "Complete") {
       chargeSessions.push({
         ...openCharge,
@@ -123,14 +139,26 @@ export function deriveSegments(snapshots: SnapshotInput[]): DerivedResult {
         energyAdded: snapshot.energyAdded,
       });
       openCharge = null;
+      lastChargeSample = null;
     }
   }
 
   if (driveStart) {
-    driveSegments.push(buildDriveSegment(driveStart, null));
+    driveSegments.push(
+      buildDriveSegment(driveStart, options.closeTrailing ? lastDriveSample : null),
+    );
   }
   if (openCharge) {
-    chargeSessions.push(openCharge);
+    chargeSessions.push(
+      options.closeTrailing && lastChargeSample
+        ? {
+            ...openCharge,
+            endedAt: lastChargeSample.polledAt,
+            endBatteryLevel: lastChargeSample.batteryLevel,
+            energyAdded: lastChargeSample.energyAdded,
+          }
+        : openCharge,
+    );
   }
 
   return { driveSegments, chargeSessions, routeLog };
