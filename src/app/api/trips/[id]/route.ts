@@ -9,6 +9,7 @@ import { listPollSnapshotsByTrip } from "@/lib/models/poll-snapshot";
 import { computeTripTotals } from "@/lib/domain/trip-totals";
 import { segmentWhPerKm } from "@/lib/domain/consumption";
 import { deleteTripCascade } from "@/lib/domain/delete-trip";
+import { syncTripDerivedData } from "@/lib/domain/sync-trip-derived-data";
 
 export async function GET(
   _request: Request,
@@ -25,13 +26,36 @@ export async function GET(
     return NextResponse.json({ error: "trip not found" }, { status: 404 });
   }
 
-  const [vehicle, driveSegments, chargeSessions, routeLog, snapshots] = await Promise.all([
+  const [vehicle, driveSegmentsResult, chargeSessionsResult, routeLog, snapshots] = await Promise.all([
     getVehicleById(trip.vehicleId),
     listDriveSegmentsByTrip(id),
     listChargeSessionsByTrip(id),
     getRouteLog(id),
     listPollSnapshotsByTrip(id),
   ]);
+
+  let driveSegments = driveSegmentsResult;
+  let chargeSessions = chargeSessionsResult;
+
+  // Self-heal trips stopped before this closing behavior existed (or by a
+  // client that raced the fix): a trailing DriveSegment/ChargeSession left
+  // open on an already-ended trip will never get new polls to close it, so
+  // close it here the same way the stop endpoint now does.
+  const hasOpenTrailingData =
+    trip.endedAt != null &&
+    (driveSegments.some((segment) => segment.endedAt === null) ||
+      chargeSessions.some((session) => session.endedAt === null));
+  if (hasOpenTrailingData) {
+    try {
+      await syncTripDerivedData(trip.id, trip.vehicleId, { tripEnded: true });
+      [driveSegments, chargeSessions] = await Promise.all([
+        listDriveSegmentsByTrip(id),
+        listChargeSessionsByTrip(id),
+      ]);
+    } catch (error) {
+      console.error("syncTripDerivedData failed", error);
+    }
+  }
 
   const batterySeries = snapshots.map((snapshot) => ({
     polledAt: snapshot.polledAt,

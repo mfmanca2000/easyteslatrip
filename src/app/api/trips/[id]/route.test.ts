@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getTrip = vi.fn();
 const getVehicleById = vi.fn();
@@ -7,6 +7,7 @@ const listChargeSessionsByTrip = vi.fn();
 const getRouteLog = vi.fn();
 const listPollSnapshotsByTrip = vi.fn();
 const deleteTripCascade = vi.fn();
+const syncTripDerivedData = vi.fn();
 
 vi.mock("@/lib/models/trip", () => ({
   getTrip: (...args: unknown[]) => getTrip(...args),
@@ -29,11 +30,18 @@ vi.mock("@/lib/models/route-log", () => ({
 vi.mock("@/lib/models/poll-snapshot", () => ({
   listPollSnapshotsByTrip: (...args: unknown[]) => listPollSnapshotsByTrip(...args),
 }));
+vi.mock("@/lib/domain/sync-trip-derived-data", () => ({
+  syncTripDerivedData: (...args: unknown[]) => syncTripDerivedData(...args),
+}));
 
 const TRIP_ID = "507f1f77bcf86cd799439099";
 const VEHICLE_ID = "507f1f77bcf86cd799439011";
 
 describe("GET /api/trips/[id]", () => {
+  beforeEach(() => {
+    syncTripDerivedData.mockReset().mockResolvedValue(undefined);
+  });
+
   it("returns 400 for an invalid trip id", async () => {
     const { GET } = await import("./route");
 
@@ -96,6 +104,59 @@ describe("GET /api/trips/[id]", () => {
     expect(body.batterySeries).toEqual([{ polledAt: "2026-08-20T07:00:00.000Z", batteryLevel: 80, odometer: 15000 }]);
     expect(body.totals.distanceKm).toBe(100);
     expect(body.totals.drivingMinutes).toBe(60);
+    expect(syncTripDerivedData).not.toHaveBeenCalled();
+  });
+
+  it("self-heals a trailing open DriveSegment on an already-ended trip", async () => {
+    getTrip.mockResolvedValue({ id: TRIP_ID, vehicleId: VEHICLE_ID, startedAt: "s", endedAt: "e" });
+    getVehicleById.mockResolvedValue({ id: VEHICLE_ID, name: "Electra", entityPrefix: "electra", createdAt: "c" });
+    const openSegment = {
+      id: "seg1",
+      tripId: TRIP_ID,
+      vehicleId: VEHICLE_ID,
+      startedAt: "2026-08-20T07:00:00.000Z",
+      endedAt: null,
+      startOdometer: 15000,
+      endOdometer: null,
+      distanceKm: null,
+      startLatitude: 44.5,
+      startLongitude: 11.3,
+      endLatitude: null,
+      endLongitude: null,
+      startPlaceName: "Bologna",
+      endPlaceName: null,
+    };
+    const closedSegment = { ...openSegment, endedAt: "2026-08-20T08:00:00.000Z", endOdometer: 15050, distanceKm: 50, endPlaceName: "Modena" };
+    listDriveSegmentsByTrip.mockResolvedValueOnce([openSegment]).mockResolvedValueOnce([closedSegment]);
+    listChargeSessionsByTrip.mockResolvedValue([]);
+    getRouteLog.mockResolvedValue([]);
+    listPollSnapshotsByTrip.mockResolvedValue([]);
+    const { GET } = await import("./route");
+
+    const response = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ id: TRIP_ID }),
+    });
+    const body = await response.json();
+
+    expect(syncTripDerivedData).toHaveBeenCalledWith(TRIP_ID, VEHICLE_ID, { tripEnded: true });
+    expect(body.driveSegments[0].endedAt).toBe("2026-08-20T08:00:00.000Z");
+    expect(body.totals.distanceKm).toBe(50);
+  });
+
+  it("does not self-heal a still-active trip with an open segment", async () => {
+    getTrip.mockResolvedValue({ id: TRIP_ID, vehicleId: VEHICLE_ID, startedAt: "s", endedAt: null });
+    getVehicleById.mockResolvedValue({ id: VEHICLE_ID, name: "Electra", entityPrefix: "electra", createdAt: "c" });
+    listDriveSegmentsByTrip.mockResolvedValue([
+      { id: "seg1", tripId: TRIP_ID, vehicleId: VEHICLE_ID, startedAt: "s", endedAt: null, startOdometer: 15000, endOdometer: null, distanceKm: null, startLatitude: 44.5, startLongitude: 11.3, endLatitude: null, endLongitude: null, startPlaceName: null, endPlaceName: null },
+    ]);
+    listChargeSessionsByTrip.mockResolvedValue([]);
+    getRouteLog.mockResolvedValue([]);
+    listPollSnapshotsByTrip.mockResolvedValue([]);
+    const { GET } = await import("./route");
+
+    await GET(new Request("http://localhost"), { params: Promise.resolve({ id: TRIP_ID }) });
+
+    expect(syncTripDerivedData).not.toHaveBeenCalled();
   });
 });
 

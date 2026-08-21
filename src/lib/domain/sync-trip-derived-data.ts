@@ -21,7 +21,18 @@ import type { ChargeSession } from "@/lib/models/charge-session";
 // a segment/session's start time is stable across recomputes). Segments
 // already closed and geocoded on a prior call keep their stored place name
 // instead of re-fetching it.
-export async function syncTripDerivedData(tripId: string, vehicleId: string): Promise<void> {
+export interface SyncTripDerivedDataOptions {
+  // Pass true once the Trip itself has been stopped, so a still-open
+  // trailing DriveSegment/ChargeSession gets closed with its last known
+  // sample instead of staying open forever (see DeriveSegmentsOptions).
+  tripEnded?: boolean;
+}
+
+export async function syncTripDerivedData(
+  tripId: string,
+  vehicleId: string,
+  options: SyncTripDerivedDataOptions = {},
+): Promise<void> {
   const snapshots = await listPollSnapshotsByTrip(tripId);
   const { driveSegments, chargeSessions, routeLog } = deriveSegments(
     snapshots.map((snapshot) => ({
@@ -34,6 +45,7 @@ export async function syncTripDerivedData(tripId: string, vehicleId: string): Pr
       latitude: snapshot.latitude,
       longitude: snapshot.longitude,
     })),
+    { closeTrailing: options.tripEnded },
   );
 
   const previousDrive = await listDriveSegmentsByTrip(tripId);

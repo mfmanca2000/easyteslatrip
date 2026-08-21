@@ -58,6 +58,37 @@ describe("deriveSegments — DriveSegment", () => {
     expect(driveSegments[1].endedAt).toBeNull();
     expect(driveSegments[1].endBatteryLevel).toBeNull();
   });
+
+  it("closeTrailing closes a still-open segment using its last driving sample", () => {
+    const snapshots: SnapshotInput[] = [
+      snapshot({ minute: 0, shiftState: "D", odometer: 15000, batteryLevel: 80, latitude: 44.0, longitude: 11.0 }),
+      snapshot({ minute: 5, shiftState: "D", odometer: 15010, batteryLevel: 75, latitude: 44.1, longitude: 11.1 }),
+    ];
+
+    const { driveSegments } = deriveSegments(snapshots, { closeTrailing: true });
+
+    expect(driveSegments).toHaveLength(1);
+    expect(driveSegments[0].endedAt).toEqual(new Date(2026, 7, 20, 7, 5));
+    expect(driveSegments[0].endOdometer).toBe(15010);
+    expect(driveSegments[0].distanceKm).toBe(10);
+    expect(driveSegments[0].endBatteryLevel).toBe(75);
+    expect(driveSegments[0].endLatitude).toBe(44.1);
+    expect(driveSegments[0].endLongitude).toBe(11.1);
+  });
+
+  it("closeTrailing ignores a trailing lone non-driving noise sample and closes at the last D sample", () => {
+    const snapshots: SnapshotInput[] = [
+      snapshot({ minute: 0, shiftState: "D", odometer: 15000 }),
+      snapshot({ minute: 5, shiftState: "D", odometer: 15010 }),
+      snapshot({ minute: 10, shiftState: "P", odometer: 15010 }), // lone noise, trip stopped right after
+    ];
+
+    const { driveSegments } = deriveSegments(snapshots, { closeTrailing: true });
+
+    expect(driveSegments).toHaveLength(1);
+    expect(driveSegments[0].endedAt).toEqual(new Date(2026, 7, 20, 7, 5));
+    expect(driveSegments[0].endOdometer).toBe(15010);
+  });
 });
 
 describe("deriveSegments — ChargeSession", () => {
@@ -90,6 +121,20 @@ describe("deriveSegments — ChargeSession", () => {
 
     expect(chargeSessions).toHaveLength(1);
     expect(chargeSessions[0].endedAt).toBeNull();
+  });
+
+  it("closeTrailing closes a still-open session using its last charging sample", () => {
+    const snapshots: SnapshotInput[] = [
+      snapshot({ minute: 0, chargingState: "Charging", batteryLevel: 40, energyAdded: 0 }),
+      snapshot({ minute: 30, chargingState: "Charging", batteryLevel: 70, energyAdded: 20 }),
+    ];
+
+    const { chargeSessions } = deriveSegments(snapshots, { closeTrailing: true });
+
+    expect(chargeSessions).toHaveLength(1);
+    expect(chargeSessions[0].endedAt).toEqual(new Date(2026, 7, 20, 7, 30));
+    expect(chargeSessions[0].endBatteryLevel).toBe(70);
+    expect(chargeSessions[0].energyAdded).toBe(20);
   });
 });
 

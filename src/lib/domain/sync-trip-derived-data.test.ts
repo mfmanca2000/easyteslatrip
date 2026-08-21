@@ -91,6 +91,22 @@ describe("syncTripDerivedData", () => {
     expect(saved[0].startPlaceName).toBeNull();
   });
 
+  it("closes and geocodes a trailing open drive segment when the trip has ended", async () => {
+    listPollSnapshotsByTrip.mockResolvedValue([
+      pollSnapshot({ shiftState: "D", odometer: 15000, polledAt: "2026-08-20T07:00:00.000Z" }),
+      pollSnapshot({ shiftState: "D", odometer: 15010, polledAt: "2026-08-20T07:05:00.000Z" }),
+    ]);
+    const { syncTripDerivedData } = await import("./sync-trip-derived-data");
+
+    await syncTripDerivedData(TRIP_ID, VEHICLE_ID, { tripEnded: true });
+
+    expect(reverseGeocode).toHaveBeenCalledTimes(2); // start + end
+    const saved = saveDriveSegments.mock.calls[0][2];
+    expect(saved[0].endedAt).toEqual(new Date("2026-08-20T07:05:00.000Z"));
+    expect(saved[0].distanceKm).toBe(10);
+    expect(saved[0].endPlaceName).toBe("Bologna, Italy");
+  });
+
   it("reuses a previously-resolved place name instead of geocoding again", async () => {
     listPollSnapshotsByTrip.mockResolvedValue([
       pollSnapshot({ shiftState: "D", odometer: 15000, polledAt: "2026-08-20T07:00:00.000Z" }),
