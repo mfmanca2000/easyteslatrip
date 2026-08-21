@@ -7,7 +7,7 @@ import styles from "./page.module.css";
 export interface MapPin {
   latitude: number;
   longitude: number;
-  kind: "drive" | "charge" | "start" | "end";
+  kind: "drive" | "charge" | "start" | "end" | "current";
 }
 
 interface TripMapProps {
@@ -15,12 +15,23 @@ interface TripMapProps {
   pins: MapPin[];
 }
 
-const PIN_COLOR: Record<MapPin["kind"], string> = {
+const PIN_COLOR: Record<Exclude<MapPin["kind"], "current">, string> = {
   start: "#3ddc97",
   end: "#5b8cff",
   drive: "#5b8cff",
   charge: "#ffb454",
 };
+
+// The "current" pin (last known position while a trip is still active) gets
+// a custom pulsing element instead of a plain color pin — it's often the
+// only marker on the map (a parked/idle car has no closed DriveSegment or
+// ChargeSession yet) and needs to read unambiguously as "live," not as a
+// completed leg's start/end point.
+function buildCurrentPositionElement(): HTMLDivElement {
+  const el = document.createElement("div");
+  el.className = styles.currentDot;
+  return el;
+}
 
 export default function TripMap({ routeLog, pins }: TripMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -80,9 +91,11 @@ export default function TripMap({ routeLog, pins }: TripMapProps) {
         });
 
         pins.forEach((pin) => {
-          new mapboxgl.default.Marker({ color: PIN_COLOR[pin.kind] })
-            .setLngLat([pin.longitude, pin.latitude])
-            .addTo(map!);
+          const marker =
+            pin.kind === "current"
+              ? new mapboxgl.default.Marker({ element: buildCurrentPositionElement() })
+              : new mapboxgl.default.Marker({ color: PIN_COLOR[pin.kind] });
+          marker.setLngLat([pin.longitude, pin.latitude]).addTo(map!);
         });
       });
     });

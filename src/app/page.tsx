@@ -253,10 +253,12 @@ function TripListPageContent() {
                   <>
                     <h2 className={styles.sectiontitle}>In progress</h2>
                     <div className={`${styles.trip} ${styles.tripActive}`}>
-                      <div className={styles.tripHead}>
-                        <div className={styles.tripName}>🔴 Trip in progress</div>
-                        <div className={styles.tripDates}>{formatActive(activeTrip)}</div>
-                      </div>
+                      <Link href={`/trips/${activeTrip.id}`} className={styles.tripLink}>
+                        <div className={styles.tripHead}>
+                          <div className={styles.tripName}>🔴 Trip in progress</div>
+                          <div className={styles.tripDates}>{formatActive(activeTrip)}</div>
+                        </div>
+                      </Link>
                       <button
                         type="button"
                         className={styles.stopButton}

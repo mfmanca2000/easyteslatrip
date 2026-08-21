@@ -168,8 +168,17 @@ function buildMapPins(detail: TripDetail): MapPin[] {
   detail.chargeSessions.forEach((session) => {
     pins.push({ latitude: session.latitude, longitude: session.longitude, kind: "charge" });
   });
+  // Only meaningful while the trip is still running — once it stops, the
+  // DriveSegment/ChargeSession pins above already cover the map, and the
+  // last poll's position would just duplicate one of them.
+  if (detail.trip.endedAt === null && detail.routeLog.length > 0) {
+    const last = detail.routeLog[detail.routeLog.length - 1];
+    pins.push({ latitude: last.latitude, longitude: last.longitude, kind: "current" });
+  }
   return pins;
 }
+
+const ACTIVE_TRIP_REFRESH_MS = 30_000;
 
 function DriveSegmentEditForm({
   segment,
@@ -349,15 +358,29 @@ export default function TripDetailPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchJson<TripDetail>(`/api/trips/${params.id}`)
-      .then((body) => {
-        if (!cancelled) setDetail(body);
-      })
-      .catch((err) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function load() {
+      try {
+        const body = await fetchJson<TripDetail>(`/api/trips/${params.id}`);
+        if (cancelled) return;
+        setDetail(body);
+        // Keep polling while the trip is still active so the map's "current
+        // position" dot (see buildMapPins) actually moves as new HA polls
+        // land — the page would otherwise only ever show a snapshot from
+        // whenever it happened to be opened.
+        if (body.trip.endedAt === null) {
+          timer = setTimeout(load, ACTIVE_TRIP_REFRESH_MS);
+        }
+      } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load trip");
-      });
+      }
+    }
+
+    load();
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [params.id]);
 

@@ -135,6 +135,28 @@
   border-radius: 20px;
 }
 
+.currentDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #5b8cff;
+  box-shadow: 0 0 0 rgba(91, 140, 255, 0.6);
+  animation: currentDotPulse 1.8s infinite;
+}
+
+@keyframes currentDotPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(91, 140, 255, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(91, 140, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(91, 140, 255, 0);
+  }
+}
+
 .sectiontitle {
   font-size: 12px;
   text-transform: uppercase;
