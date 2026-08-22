@@ -68,6 +68,13 @@ function buildDriveSegment(
   };
 }
 
+// A DriveSegment closes once the vehicle has been continuously non-driving
+// for this long — time-based rather than a fixed sample count, so it holds
+// regardless of poll cadence (UptimeRobot's ~5 min baseline, or the ~1 min
+// cadence the trip detail page triggers while open). See CONTEXT.md's
+// "Segment inference rules".
+const DRIVE_SEGMENT_CLOSE_GRACE_MS = 10 * 60 * 1000;
+
 export interface DeriveSegmentsOptions {
   // Set once the owning Trip has been manually stopped: there will be no
   // further PollSnapshots, so a still-open DriveSegment/ChargeSession would
@@ -87,10 +94,6 @@ export function deriveSegments(
 
   let driveStart: SnapshotInput | null = null;
   let lastDriveSample: SnapshotInput | null = null;
-  // Non-driving samples seen since the drive was last extended. A single one
-  // is treated as noise (e.g. a red light) and gets absorbed once driving
-  // resumes; a second consecutive one closes the segment.
-  let pendingNonDrive: SnapshotInput[] = [];
 
   let openCharge: DerivedChargeSession | null = null;
   let lastChargeSample: SnapshotInput | null = null;
@@ -106,14 +109,12 @@ export function deriveSegments(
     if (snapshot.shiftState === "D") {
       if (!driveStart) driveStart = snapshot;
       lastDriveSample = snapshot;
-      pendingNonDrive = [];
-    } else if (driveStart) {
-      pendingNonDrive.push(snapshot);
-      if (pendingNonDrive.length >= 2) {
+    } else if (driveStart && lastDriveSample) {
+      const elapsedMs = snapshot.polledAt.getTime() - lastDriveSample.polledAt.getTime();
+      if (elapsedMs >= DRIVE_SEGMENT_CLOSE_GRACE_MS) {
         driveSegments.push(buildDriveSegment(driveStart, lastDriveSample));
         driveStart = null;
         lastDriveSample = null;
-        pendingNonDrive = [];
       }
     }
 
