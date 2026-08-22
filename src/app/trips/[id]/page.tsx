@@ -360,6 +360,8 @@ export default function TripDetailPage() {
   const [editingLegId, setEditingLegId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [stopping, setStopping] = useState(false);
+  const [stopError, setStopError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -443,6 +445,20 @@ export default function TripDetailPage() {
     setEditingLegId(null);
   }
 
+  async function handleStop() {
+    setStopping(true);
+    setStopError(null);
+    try {
+      await fetchJson(`/api/trips/${params.id}/stop`, { method: "POST" });
+      const body = await fetchJson<TripDetail>(`/api/trips/${params.id}`);
+      setDetail(body);
+    } catch (err) {
+      setStopError(err instanceof Error ? err.message : "Failed to stop trip");
+    } finally {
+      setStopping(false);
+    }
+  }
+
   async function handleDelete() {
     if (!window.confirm("Delete this trip? This cannot be undone.")) return;
     setDeleting(true);
@@ -486,6 +502,7 @@ export default function TripDetailPage() {
           <h1>{legs[0]?.type === "drive" ? legs[0].segment.startPlaceName ?? "Trip" : "Trip"}</h1>
           <div className={styles.titleSub}>{formatDateRange(trip)}</div>
         </div>
+        {trip.endedAt === null && <div className={styles.liveTag}>🔴 Live</div>}
         {vehicle && <div className={styles.vehTag}>🚗 {vehicle.name}</div>}
         <button
           type="button"
@@ -501,6 +518,15 @@ export default function TripDetailPage() {
 
       <div className={styles.container}>
         {deleteError && <p className={styles.error}>{deleteError}</p>}
+        {stopError && <p className={styles.error}>{stopError}</p>}
+        {trip.endedAt === null && (
+          <div className={styles.liveBanner}>
+            <div className={styles.liveBannerText}>🔴 Trip in progress</div>
+            <button type="button" className={styles.stopButton} disabled={stopping} onClick={handleStop}>
+              {stopping ? "Stopping…" : "Stop trip"}
+            </button>
+          </div>
+        )}
         <TripMap routeLog={detail.routeLog} pins={mapPins} />
 
         <h2 className={styles.sectiontitle}>Battery over trip</h2>

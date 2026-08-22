@@ -81,6 +81,49 @@
   flex: none;
 }
 
+.liveTag {
+  font-size: 11px;
+  color: var(--danger);
+  background: rgba(255, 92, 92, 0.14);
+  padding: 3px 8px;
+  border-radius: 20px;
+  flex: none;
+}
+
+.liveBanner {
+  background: var(--bg-card);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.liveBannerText {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stopButton {
+  flex: none;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: none;
+  background: var(--danger);
+  color: #1a0505;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.stopButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .deleteButton {
   flex: none;
   width: 32px;
