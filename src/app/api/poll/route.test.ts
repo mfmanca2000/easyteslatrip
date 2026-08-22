@@ -1,25 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getAnyActiveTrip = vi.fn();
-const getVehicleById = vi.fn();
-const createPollSnapshot = vi.fn();
-const fetchVehicleSnapshot = vi.fn();
-const syncTripDerivedData = vi.fn();
+const pollTripOnce = vi.fn();
 
 vi.mock("@/lib/models/trip", () => ({
   getAnyActiveTrip: (...args: unknown[]) => getAnyActiveTrip(...args),
 }));
-vi.mock("@/lib/models/vehicle", () => ({
-  getVehicleById: (...args: unknown[]) => getVehicleById(...args),
-}));
-vi.mock("@/lib/models/poll-snapshot", () => ({
-  createPollSnapshot: (...args: unknown[]) => createPollSnapshot(...args),
-}));
-vi.mock("@/lib/ha", () => ({
-  fetchVehicleSnapshot: (...args: unknown[]) => fetchVehicleSnapshot(...args),
-}));
-vi.mock("@/lib/domain/sync-trip-derived-data", () => ({
-  syncTripDerivedData: (...args: unknown[]) => syncTripDerivedData(...args),
+vi.mock("@/lib/domain/poll-trip", () => ({
+  pollTripOnce: (...args: unknown[]) => pollTripOnce(...args),
 }));
 
 const TRIP_ID = "507f1f77bcf86cd799439099";
@@ -32,10 +20,7 @@ function request(headers: Record<string, string> = {}) {
 describe("GET/HEAD /api/poll", () => {
   beforeEach(() => {
     getAnyActiveTrip.mockReset();
-    getVehicleById.mockReset();
-    createPollSnapshot.mockReset();
-    fetchVehicleSnapshot.mockReset();
-    syncTripDerivedData.mockReset();
+    pollTripOnce.mockReset();
     vi.stubEnv("POLL_TRIGGER_SECRET", "shh");
   });
 
@@ -61,93 +46,30 @@ describe("GET/HEAD /api/poll", () => {
     expect(getAnyActiveTrip).not.toHaveBeenCalled();
   });
 
-  it("no-ops without calling HA when no trip is active for any vehicle", async () => {
+  it("no-ops without polling when no trip is active for any vehicle", async () => {
     getAnyActiveTrip.mockResolvedValue(null);
     const { GET } = await import("./route");
 
     const response = await GET(request({ authorization: "Bearer shh" }));
 
     expect(response.status).toBe(200);
-    expect(fetchVehicleSnapshot).not.toHaveBeenCalled();
-    expect(createPollSnapshot).not.toHaveBeenCalled();
+    expect(pollTripOnce).not.toHaveBeenCalled();
   });
 
-  it("polls HA and writes a snapshot when a trip is active", async () => {
+  it("polls the active trip once when one is active", async () => {
     getAnyActiveTrip.mockResolvedValue({
       id: TRIP_ID,
       vehicleId: VEHICLE_ID,
       startedAt: "s",
       endedAt: null,
     });
-    getVehicleById.mockResolvedValue({
-      id: VEHICLE_ID,
-      name: "Electra",
-      entityPrefix: "electra",
-      createdAt: "c",
-    });
-    const snapshotFields = {
-      batteryLevel: 77,
-      shiftState: "D",
-      charging: false,
-      pluggedIn: false,
-      chargingState: "Disconnected",
-      energyAdded: 0,
-      odometer: 15230,
-      chargerPower: 0,
-      latitude: 44.5,
-      longitude: 11.3,
-    };
-    fetchVehicleSnapshot.mockResolvedValue(snapshotFields);
-    createPollSnapshot.mockResolvedValue({ id: "snap1", tripId: TRIP_ID, vehicleId: VEHICLE_ID, ...snapshotFields });
+    pollTripOnce.mockResolvedValue(undefined);
 
     const { GET } = await import("./route");
     const response = await GET(request({ authorization: "Bearer shh" }));
 
     expect(response.status).toBe(200);
-    expect(fetchVehicleSnapshot).toHaveBeenCalledWith("electra");
-    expect(createPollSnapshot).toHaveBeenCalledWith({
-      tripId: TRIP_ID,
-      vehicleId: VEHICLE_ID,
-      ...snapshotFields,
-    });
-    expect(syncTripDerivedData).toHaveBeenCalledWith(TRIP_ID, VEHICLE_ID);
-  });
-
-  it("still returns 200 and keeps the poll snapshot when derived-data sync fails", async () => {
-    getAnyActiveTrip.mockResolvedValue({
-      id: TRIP_ID,
-      vehicleId: VEHICLE_ID,
-      startedAt: "s",
-      endedAt: null,
-    });
-    getVehicleById.mockResolvedValue({
-      id: VEHICLE_ID,
-      name: "Electra",
-      entityPrefix: "electra",
-      createdAt: "c",
-    });
-    fetchVehicleSnapshot.mockResolvedValue({
-      batteryLevel: 77,
-      shiftState: "D",
-      charging: false,
-      pluggedIn: false,
-      chargingState: "Disconnected",
-      energyAdded: 0,
-      odometer: 15230,
-      chargerPower: 0,
-      latitude: 44.5,
-      longitude: 11.3,
-    });
-    createPollSnapshot.mockResolvedValue({ id: "snap1" });
-    syncTripDerivedData.mockRejectedValue(new Error("Mapbox request failed: 500"));
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    const { GET } = await import("./route");
-    const response = await GET(request({ authorization: "Bearer shh" }));
-
-    expect(response.status).toBe(200);
-    expect(createPollSnapshot).toHaveBeenCalledOnce();
-    consoleErrorSpy.mockRestore();
+    expect(pollTripOnce).toHaveBeenCalledWith(TRIP_ID, VEHICLE_ID);
   });
 
   it("exposes the same handler for HEAD requests", async () => {

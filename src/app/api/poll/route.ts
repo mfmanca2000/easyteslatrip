@@ -1,10 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getAnyActiveTrip } from "@/lib/models/trip";
-import { getVehicleById } from "@/lib/models/vehicle";
-import { createPollSnapshot } from "@/lib/models/poll-snapshot";
-import { fetchVehicleSnapshot } from "@/lib/ha";
-import { syncTripDerivedData } from "@/lib/domain/sync-trip-derived-data";
+import { pollTripOnce } from "@/lib/domain/poll-trip";
 
 // Public (no session gate — see middleware.ts), so the secret check must not
 // leak timing information about how many leading characters matched.
@@ -30,18 +27,7 @@ async function handlePollTrigger(request: Request): Promise<NextResponse> {
     return new NextResponse(null, { status: 200 });
   }
 
-  const vehicle = await getVehicleById(trip.vehicleId);
-  const snapshot = await fetchVehicleSnapshot(vehicle!.entityPrefix);
-  await createPollSnapshot({ tripId: trip.id, vehicleId: trip.vehicleId, ...snapshot });
-
-  // Best-effort: the PollSnapshot audit trail above is what matters for the
-  // uptime check. A transient failure here (e.g. Mapbox down) shouldn't
-  // fail the poll — the next poll recomputes from full history and retries.
-  try {
-    await syncTripDerivedData(trip.id, trip.vehicleId);
-  } catch (error) {
-    console.error("syncTripDerivedData failed", error);
-  }
+  await pollTripOnce(trip.id, trip.vehicleId);
 
   return new NextResponse(null, { status: 200 });
 }
