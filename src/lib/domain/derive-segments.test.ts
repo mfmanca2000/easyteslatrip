@@ -91,6 +91,66 @@ describe("deriveSegments — DriveSegment", () => {
   });
 });
 
+describe("deriveSegments — DriveSegment closing is time-based, not sample-count-based", () => {
+  it("does not close a segment on a short non-driving gap at 1-minute cadence", () => {
+    const snapshots: SnapshotInput[] = [
+      snapshot({ minute: 0, shiftState: "D", odometer: 15000 }),
+      snapshot({ minute: 1, shiftState: "D", odometer: 15001 }),
+      snapshot({ minute: 2, shiftState: "P", odometer: 15001 }), // red light, ~1 min cadence
+      snapshot({ minute: 3, shiftState: "P", odometer: 15001 }), // would have closed under the old 2-sample rule
+      snapshot({ minute: 4, shiftState: "P", odometer: 15001 }),
+      snapshot({ minute: 5, shiftState: "D", odometer: 15002 }), // resumes well within the 10-min grace window
+    ];
+
+    const { driveSegments } = deriveSegments(snapshots);
+
+    expect(driveSegments).toHaveLength(1);
+    expect(driveSegments[0].endedAt).toBeNull();
+  });
+
+  it("keeps the segment open at exactly 9 minutes of continuous non-driving", () => {
+    const snapshots: SnapshotInput[] = [
+      snapshot({ minute: 0, shiftState: "D", odometer: 15000 }),
+      snapshot({ minute: 1, shiftState: "D", odometer: 15001 }),
+      snapshot({ minute: 10, shiftState: "P", odometer: 15001 }), // 9 min after the last D sample
+    ];
+
+    const { driveSegments } = deriveSegments(snapshots);
+
+    expect(driveSegments).toHaveLength(1);
+    expect(driveSegments[0].endedAt).toBeNull();
+  });
+
+  it("closes the segment at exactly 10 minutes of continuous non-driving", () => {
+    const snapshots: SnapshotInput[] = [
+      snapshot({ minute: 0, shiftState: "D", odometer: 15000 }),
+      snapshot({ minute: 1, shiftState: "D", odometer: 15001 }),
+      snapshot({ minute: 11, shiftState: "P", odometer: 15001 }), // 10 min after the last D sample
+    ];
+
+    const { driveSegments } = deriveSegments(snapshots);
+
+    expect(driveSegments).toHaveLength(1);
+    expect(driveSegments[0].endedAt).toEqual(new Date(2026, 7, 20, 7, 1));
+    expect(driveSegments[0].endOdometer).toBe(15001);
+  });
+
+  it("closes correctly across a mid-trip cadence change (1-minute, then 5-minute spacing)", () => {
+    const snapshots: SnapshotInput[] = [
+      snapshot({ minute: 0, shiftState: "D", odometer: 15000 }),
+      snapshot({ minute: 1, shiftState: "D", odometer: 15001 }),
+      snapshot({ minute: 2, shiftState: "P", odometer: 15001 }), // 1-min cadence, absorbed
+      snapshot({ minute: 7, shiftState: "P", odometer: 15001 }), // cadence widens to 5 min, 6 min elapsed — still open
+      snapshot({ minute: 12, shiftState: "P", odometer: 15001 }), // 11 min elapsed — closes
+    ];
+
+    const { driveSegments } = deriveSegments(snapshots);
+
+    expect(driveSegments).toHaveLength(1);
+    expect(driveSegments[0].endedAt).toEqual(new Date(2026, 7, 20, 7, 1));
+  });
+});
+
 describe("deriveSegments — ChargeSession", () => {
   it("closes at charging_state Complete, not at unplug, and stays closed while still plugged in", () => {
     const snapshots: SnapshotInput[] = [

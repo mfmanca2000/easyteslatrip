@@ -178,7 +178,12 @@ function buildMapPins(detail: TripDetail): MapPin[] {
   return pins;
 }
 
-const ACTIVE_TRIP_REFRESH_MS = 30_000;
+// While the trip is still active, trigger a real HA poll (not just a DB
+// re-read) roughly once a minute so the map's "current position" dot and
+// battery chart actually move as the page sits open, instead of only
+// getting fresh data whenever UptimeRobot's external ~5-minute trigger
+// happens to land.
+const ACTIVE_TRIP_REFRESH_MS = 60_000;
 
 function DriveSegmentEditForm({
   segment,
@@ -362,6 +367,16 @@ export default function TripDetailPage() {
 
     async function load() {
       try {
+        // Best-effort: trigger a real HA poll before reading the trip back,
+        // instead of only ever showing whatever UptimeRobot last wrote. A
+        // transient HA failure here shouldn't block the page from showing
+        // whatever's already in the DB, so it's swallowed rather than
+        // surfaced through the error banner below.
+        await fetchJson(`/api/trips/${params.id}/poll`, { method: "POST" }).catch((err) => {
+          console.error("poll trigger failed", err);
+        });
+        if (cancelled) return;
+
         const body = await fetchJson<TripDetail>(`/api/trips/${params.id}`);
         if (cancelled) return;
         setDetail(body);

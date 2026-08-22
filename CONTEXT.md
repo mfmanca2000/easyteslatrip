@@ -40,10 +40,10 @@ The ordered sequence of GPS points (from PollSnapshots) for a Trip, used to draw
 
 ## Segment inference rules
 
-Poll resolution is fixed at 5 minutes (see the polling design). Rules are expressed in consecutive samples, not raw minutes:
+Poll cadence is not uniform: an external UptimeRobot monitor triggers a poll every ~5 minutes as a baseline, but the app also triggers an immediate poll right when a trip starts, and roughly once a minute while a trip's detail page is open in a browser tab. So consecutive PollSnapshots for a trip can be anywhere from ~1 to ~5 minutes apart, and rules that matter must be expressed in raw time, not sample counts:
 
-- **DriveSegment** ends after 2 consecutive non-driving samples (`shift_state != D`, ~10 min). A single lone non-driving sample is treated as noise (e.g. one red light) and does not split the segment.
-- **ChargeSession** ends at `charging_state == Complete` — not at unplug. The idle plugged-in time after Complete is not part of the session.
+- **DriveSegment** ends once `shift_state != D` has held continuously for ≥10 minutes, regardless of how many samples that spans. A brief non-driving read (e.g. one red light) that resolves before the 10-minute grace period elapses does not split the segment.
+- **ChargeSession** ends at `charging_state == Complete` — not at unplug. The idle plugged-in time after Complete is not part of the session. Unlike DriveSegment, this has no cadence sensitivity: it fires on the state transition itself, not on elapsed time or sample count.
 - **RouteLog** always straight-line interpolates between consecutive GPS points, regardless of the time/distance gap between them — no special handling for missed polls.
 
 ## Open questions (not yet resolved)
