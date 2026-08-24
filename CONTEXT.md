@@ -21,7 +21,7 @@ Nothing pushes events — the app must **poll** HA state on an interval and infe
 A single physical Tesla, identified by its HA device/entity prefix. A user may register multiple Vehicles (multi-car support). All Trips belong to exactly one Vehicle. Carries a user-entered usable battery pack capacity (`batteryCapacityKwh`, nullable) — HA exposes no energy-consumed sensor, so this is what turns a DriveSegment's battery % drop into a Wh/km figure.
 
 **Trip**
-A user-declared span of travel for one Vehicle, manually started and manually stopped in the web app (not inferred from car state). A Trip is the top-level container: it owns DriveSegments, ChargeSessions, and the RouteLog for the time window between its start and stop. A Vehicle may have many Trips; Trips do not overlap for the same Vehicle.
+A span of travel for one Vehicle, manually stopped in the web app, and either manually started there or auto-started by the poll trigger when it finds a Vehicle with no active trip sitting in `shift_state == D` (a single sample is enough — see Segment inference rules). A Trip is the top-level container: it owns DriveSegments, ChargeSessions, and the RouteLog for the time window between its start and stop. A Vehicle may have many Trips; Trips do not overlap for the same Vehicle.
 
 **PollSnapshot**
 One raw poll of a Vehicle's HA state at a point in time (battery %, shift_state, charging_state, odometer, lat/long, charger_power). The atomic unit ingested from HA; DriveSegments, ChargeSessions, and RouteLog points are all derived from consecutive PollSnapshots. Retained as the audit trail / reprocessing source.
@@ -42,6 +42,7 @@ The ordered sequence of GPS points (from PollSnapshots) for a Trip, used to draw
 
 Poll cadence is not uniform: an external UptimeRobot monitor triggers a poll every ~5 minutes as a baseline, but the app also triggers an immediate poll right when a trip starts, and roughly once a minute while a trip's detail page is open in a browser tab. So consecutive PollSnapshots for a trip can be anywhere from ~1 to ~5 minutes apart, and rules that matter must be expressed in raw time, not sample counts:
 
+- **Trip** auto-starts on a single `shift_state == D` sample for a Vehicle with no active trip — asymmetric on purpose: a stray D-then-P-without-moving just leaves an idle trip to close manually, while waiting for a second confirming sample risks losing a real drive's data if the poll trigger stops firing before it arrives.
 - **DriveSegment** ends once `shift_state != D` has held continuously for ≥10 minutes, regardless of how many samples that spans. A brief non-driving read (e.g. one red light) that resolves before the 10-minute grace period elapses does not split the segment.
 - **ChargeSession** ends at `charging_state == Complete` — not at unplug. The idle plugged-in time after Complete is not part of the session. Unlike DriveSegment, this has no cadence sensitivity: it fires on the state transition itself, not on elapsed time or sample count.
 - **RouteLog** always straight-line interpolates between consecutive GPS points, regardless of the time/distance gap between them — no special handling for missed polls.
