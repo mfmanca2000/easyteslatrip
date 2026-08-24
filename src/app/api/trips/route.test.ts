@@ -5,7 +5,7 @@ const listTrips = vi.fn();
 const startTrip = vi.fn();
 const pollTripOnce = vi.fn();
 const listDriveSegmentsByTripIds = vi.fn();
-const getRouteLogsByTripIds = vi.fn();
+const getRouteLogPointCounts = vi.fn();
 
 class FakeTripAlreadyActiveError extends Error {}
 
@@ -18,7 +18,7 @@ vi.mock("@/lib/models/drive-segment", () => ({
   listDriveSegmentsByTripIds: (...args: unknown[]) => listDriveSegmentsByTripIds(...args),
 }));
 vi.mock("@/lib/models/route-log", () => ({
-  getRouteLogsByTripIds: (...args: unknown[]) => getRouteLogsByTripIds(...args),
+  getRouteLogPointCounts: (...args: unknown[]) => getRouteLogPointCounts(...args),
 }));
 vi.mock("@/lib/domain/poll-trip", () => ({
   pollTripOnce: (...args: unknown[]) => pollTripOnce(...args),
@@ -29,7 +29,7 @@ const VEHICLE_ID = "507f1f77bcf86cd799439011";
 describe("GET /api/trips", () => {
   beforeEach(() => {
     listDriveSegmentsByTripIds.mockReset().mockResolvedValue([]);
-    getRouteLogsByTripIds.mockReset().mockResolvedValue({});
+    getRouteLogPointCounts.mockReset().mockResolvedValue({});
   });
 
   it("returns trips for a vehicle", async () => {

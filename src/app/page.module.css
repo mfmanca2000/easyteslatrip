@@ -95,6 +95,9 @@
   min-width: 0;
   color: inherit;
   text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .tripActive {
@@ -118,6 +121,14 @@
   gap: 12px;
 }
 
+.tripInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
 .tripName {
   font-size: 15px;
   font-weight: 700;
@@ -134,27 +145,18 @@
   white-space: nowrap;
 }
 
-.thumb {
-  height: 64px;
+.thumbSquare {
+  flex: none;
+  width: 56px;
+  height: 56px;
   border-radius: 10px;
-  margin-top: 10px;
   background: linear-gradient(135deg, #16324a, #101a26 60%, #0c141c);
   position: relative;
   overflow: hidden;
 }
 
-.thumb svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.thumb path {
-  fill: none;
-  stroke: var(--accent2);
-  stroke-width: 2.5;
-  stroke-dasharray: 1.5 6;
-  opacity: 0.85;
+.thumbSquare img {
+  object-fit: cover;
 }
 
 .stopButton {

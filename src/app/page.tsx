@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "./page.module.css";
@@ -19,7 +20,7 @@ interface Trip {
   startPlaceName: string | null;
   endPlaceName: string | null;
   distanceKm: number | null;
-  routePoints: { latitude: number; longitude: number }[];
+  hasRoute: boolean;
 }
 
 function tripName(trip: Trip): string {
@@ -27,37 +28,15 @@ function tripName(trip: Trip): string {
   return `${trip.startPlaceName ?? "Unknown"} → ${trip.endPlaceName ?? "Unknown"}`;
 }
 
-const THUMB_WIDTH = 400;
-const THUMB_HEIGHT = 64;
-const THUMB_PADDING = 6;
-
-function RouteThumbnail({ points }: { points: Trip["routePoints"] }) {
-  if (points.length < 2) return null;
-
-  const lats = points.map((p) => p.latitude);
-  const lngs = points.map((p) => p.longitude);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  const spanLat = maxLat - minLat || 1;
-  const spanLng = maxLng - minLng || 1;
-
-  const d = points
-    .map((point, i) => {
-      const x = THUMB_PADDING + ((point.longitude - minLng) / spanLng) * (THUMB_WIDTH - 2 * THUMB_PADDING);
-      // Screen y grows downward; latitude grows northward — flip it.
-      const y =
-        THUMB_PADDING + (1 - (point.latitude - minLat) / spanLat) * (THUMB_HEIGHT - 2 * THUMB_PADDING);
-      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-
+// Backed by /api/trips/[id]/thumbnail, which caches a completed trip's map
+// image server-side after the first request instead of hitting Mapbox on
+// every page load.
+function RouteThumbnail({ trip }: { trip: Trip }) {
   return (
-    <div className={styles.thumb}>
-      <svg viewBox={`0 0 ${THUMB_WIDTH} ${THUMB_HEIGHT}`} preserveAspectRatio="none">
-        <path d={d} />
-      </svg>
+    <div className={styles.thumbSquare}>
+      {trip.hasRoute && (
+        <Image src={`/api/trips/${trip.id}/thumbnail`} alt="" fill sizes="56px" unoptimized />
+      )}
     </div>
   );
 }
@@ -322,11 +301,11 @@ function TripListPageContent() {
                   pastTrips.map((trip) => (
                     <div key={trip.id} className={`${styles.trip} ${styles.tripRow}`}>
                       <Link href={`/trips/${trip.id}`} className={styles.tripLink}>
-                        <div className={styles.tripHead}>
+                        <RouteThumbnail trip={trip} />
+                        <div className={styles.tripInfo}>
                           <div className={styles.tripName}>{tripName(trip)}</div>
                           <div className={styles.tripDates}>{formatClosed(trip)}</div>
                         </div>
-                        <RouteThumbnail points={trip.routePoints} />
                       </Link>
                       <button
                         type="button"

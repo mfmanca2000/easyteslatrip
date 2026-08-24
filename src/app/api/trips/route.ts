@@ -2,25 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { listTrips, startTrip, TripAlreadyActiveError, type Trip } from "@/lib/models/trip";
 import { listDriveSegmentsByTripIds } from "@/lib/models/drive-segment";
-import { getRouteLogsByTripIds } from "@/lib/models/route-log";
+import { getRouteLogPointCounts } from "@/lib/models/route-log";
 import { pollTripOnce } from "@/lib/domain/poll-trip";
-
-// Route thumbnails only need enough points to trace the shape of the trip,
-// not every polled fix — keeps the list payload small for trips with a
-// long route log.
-const THUMBNAIL_MAX_POINTS = 30;
-
-function downsample<T>(points: T[], maxPoints: number): T[] {
-  if (points.length <= maxPoints) return points;
-  const step = (points.length - 1) / (maxPoints - 1);
-  return Array.from({ length: maxPoints }, (_, i) => points[Math.round(i * step)]);
-}
 
 export interface TripListItem extends Trip {
   startPlaceName: string | null;
   endPlaceName: string | null;
   distanceKm: number | null;
-  routePoints: { latitude: number; longitude: number }[];
+  hasRoute: boolean;
 }
 
 export async function GET(request: NextRequest) {
@@ -32,9 +21,9 @@ export async function GET(request: NextRequest) {
 
   const trips = await listTrips(vehicleId);
   const tripIds = trips.map((trip) => trip.id);
-  const [segments, routeLogs] = await Promise.all([
+  const [segments, routePointCounts] = await Promise.all([
     listDriveSegmentsByTripIds(tripIds),
-    getRouteLogsByTripIds(tripIds),
+    getRouteLogPointCounts(tripIds),
   ]);
 
   const segmentsByTrip = new Map<string, typeof segments>();
@@ -57,7 +46,7 @@ export async function GET(request: NextRequest) {
       startPlaceName: first?.startPlaceName ?? null,
       endPlaceName: trip.endedAt ? (last?.endPlaceName ?? null) : null,
       distanceKm,
-      routePoints: downsample(routeLogs[trip.id] ?? [], THUMBNAIL_MAX_POINTS),
+      hasRoute: (routePointCounts[trip.id] ?? 0) >= 2,
     };
   });
 

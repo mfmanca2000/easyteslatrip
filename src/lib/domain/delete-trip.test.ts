@@ -5,6 +5,7 @@ const deleteDriveSegmentsByTrip = vi.fn();
 const deleteChargeSessionsByTrip = vi.fn();
 const deleteRouteLog = vi.fn();
 const deletePollSnapshotsByTrip = vi.fn();
+const deleteTripThumbnail = vi.fn();
 
 vi.mock("@/lib/models/trip", () => ({
   deleteTrip: (...args: unknown[]) => deleteTrip(...args),
@@ -21,6 +22,9 @@ vi.mock("@/lib/models/route-log", () => ({
 vi.mock("@/lib/models/poll-snapshot", () => ({
   deletePollSnapshotsByTrip: (...args: unknown[]) => deletePollSnapshotsByTrip(...args),
 }));
+vi.mock("@/lib/models/trip-thumbnail", () => ({
+  deleteTripThumbnail: (...args: unknown[]) => deleteTripThumbnail(...args),
+}));
 
 const TRIP_ID = "507f1f77bcf86cd799439099";
 
@@ -31,6 +35,7 @@ describe("deleteTripCascade", () => {
     deleteChargeSessionsByTrip.mockReset().mockResolvedValue(undefined);
     deleteRouteLog.mockReset().mockResolvedValue(undefined);
     deletePollSnapshotsByTrip.mockReset().mockResolvedValue(undefined);
+    deleteTripThumbnail.mockReset().mockResolvedValue(undefined);
   });
 
   it("deletes derived data and the trip, returning true when the trip existed", async () => {
@@ -44,6 +49,7 @@ describe("deleteTripCascade", () => {
     expect(deleteChargeSessionsByTrip).toHaveBeenCalledWith(TRIP_ID);
     expect(deleteRouteLog).toHaveBeenCalledWith(TRIP_ID);
     expect(deletePollSnapshotsByTrip).toHaveBeenCalledWith(TRIP_ID);
+    expect(deleteTripThumbnail).toHaveBeenCalledWith(TRIP_ID);
     expect(deleteTrip).toHaveBeenCalledWith(TRIP_ID);
   });
 
