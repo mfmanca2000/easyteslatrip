@@ -61,14 +61,16 @@ async function getPollSnapshotsCollection(): Promise<Collection<PollSnapshotDoc>
 }
 
 export async function createPollSnapshot(
-  input: VehicleSnapshot & { tripId: string; vehicleId: string },
+  // polledAt: only for backfilling a historical reading (see
+  // backfill-missed-drive.ts) — omit to timestamp it now, as a live poll does.
+  input: VehicleSnapshot & { tripId: string; vehicleId: string; polledAt?: Date },
 ): Promise<PollSnapshot> {
   const collection = await getPollSnapshotsCollection();
   const doc: PollSnapshotDoc = {
     _id: new ObjectId(),
     tripId: new ObjectId(input.tripId),
     vehicleId: new ObjectId(input.vehicleId),
-    polledAt: new Date(),
+    polledAt: input.polledAt ?? new Date(),
     batteryLevel: input.batteryLevel,
     shiftState: input.shiftState,
     charging: input.charging,

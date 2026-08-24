@@ -4,7 +4,9 @@ const getAnyActiveTrip = vi.fn();
 const startTrip = vi.fn();
 const listVehicles = vi.fn();
 const fetchVehicleSnapshot = vi.fn();
+const findMissedDrive = vi.fn();
 const pollTripOnce = vi.fn();
+const backfillMissedDrive = vi.fn();
 
 class TripAlreadyActiveError extends Error {}
 
@@ -18,9 +20,13 @@ vi.mock("@/lib/models/vehicle", () => ({
 }));
 vi.mock("@/lib/ha", () => ({
   fetchVehicleSnapshot: (...args: unknown[]) => fetchVehicleSnapshot(...args),
+  findMissedDrive: (...args: unknown[]) => findMissedDrive(...args),
 }));
 vi.mock("@/lib/domain/poll-trip", () => ({
   pollTripOnce: (...args: unknown[]) => pollTripOnce(...args),
+}));
+vi.mock("@/lib/domain/backfill-missed-drive", () => ({
+  backfillMissedDrive: (...args: unknown[]) => backfillMissedDrive(...args),
 }));
 
 const TRIP_ID = "507f1f77bcf86cd799439099";
@@ -36,7 +42,9 @@ describe("GET/HEAD /api/poll", () => {
     startTrip.mockReset();
     listVehicles.mockReset().mockResolvedValue([]);
     fetchVehicleSnapshot.mockReset();
+    findMissedDrive.mockReset().mockResolvedValue(null);
     pollTripOnce.mockReset();
+    backfillMissedDrive.mockReset();
     vi.stubEnv("POLL_TRIGGER_SECRET", "shh");
   });
 
@@ -97,7 +105,42 @@ describe("GET/HEAD /api/poll", () => {
 
     expect(response.status).toBe(200);
     expect(fetchVehicleSnapshot).toHaveBeenCalledWith("electra");
+    expect(findMissedDrive).toHaveBeenCalledWith("electra", expect.any(Date));
     expect(startTrip).not.toHaveBeenCalled();
+    expect(pollTripOnce).not.toHaveBeenCalled();
+  });
+
+  it("backfills a trip when the vehicle isn't in Drive now but HA history shows a missed drive", async () => {
+    getAnyActiveTrip.mockResolvedValue(null);
+    listVehicles.mockResolvedValue([
+      { id: VEHICLE_ID, name: "Electra", entityPrefix: "electra", createdAt: "c" },
+    ]);
+    fetchVehicleSnapshot.mockResolvedValue({
+      batteryLevel: 80,
+      shiftState: "P",
+      charging: false,
+      pluggedIn: false,
+      chargingState: "Disconnected",
+      energyAdded: 0,
+      odometer: 15235,
+      chargerPower: 0,
+      latitude: 44.5,
+      longitude: 11.3,
+    });
+    const missedDrive = {
+      start: { at: new Date("2026-08-24T10:00:00Z"), snapshot: { odometer: 15230 } },
+      end: { at: new Date("2026-08-24T10:03:00Z"), snapshot: { odometer: 15235 } },
+    };
+    findMissedDrive.mockResolvedValue(missedDrive);
+    startTrip.mockResolvedValue({ id: TRIP_ID, vehicleId: VEHICLE_ID, startedAt: "s", endedAt: null });
+    backfillMissedDrive.mockResolvedValue(undefined);
+
+    const { GET } = await import("./route");
+    const response = await GET(request({ authorization: "Bearer shh" }));
+
+    expect(response.status).toBe(200);
+    expect(startTrip).toHaveBeenCalledWith(VEHICLE_ID);
+    expect(backfillMissedDrive).toHaveBeenCalledWith(TRIP_ID, VEHICLE_ID, missedDrive);
     expect(pollTripOnce).not.toHaveBeenCalled();
   });
 
