@@ -16,6 +16,50 @@ interface Trip {
   vehicleId: string;
   startedAt: string;
   endedAt: string | null;
+  startPlaceName: string | null;
+  endPlaceName: string | null;
+  distanceKm: number | null;
+  routePoints: { latitude: number; longitude: number }[];
+}
+
+function tripName(trip: Trip): string {
+  if (!trip.startPlaceName && !trip.endPlaceName) return "Trip";
+  return `${trip.startPlaceName ?? "Unknown"} → ${trip.endPlaceName ?? "Unknown"}`;
+}
+
+const THUMB_WIDTH = 400;
+const THUMB_HEIGHT = 64;
+const THUMB_PADDING = 6;
+
+function RouteThumbnail({ points }: { points: Trip["routePoints"] }) {
+  if (points.length < 2) return null;
+
+  const lats = points.map((p) => p.latitude);
+  const lngs = points.map((p) => p.longitude);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const spanLat = maxLat - minLat || 1;
+  const spanLng = maxLng - minLng || 1;
+
+  const d = points
+    .map((point, i) => {
+      const x = THUMB_PADDING + ((point.longitude - minLng) / spanLng) * (THUMB_WIDTH - 2 * THUMB_PADDING);
+      // Screen y grows downward; latitude grows northward — flip it.
+      const y =
+        THUMB_PADDING + (1 - (point.latitude - minLat) / spanLat) * (THUMB_HEIGHT - 2 * THUMB_PADDING);
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  return (
+    <div className={styles.thumb}>
+      <svg viewBox={`0 0 ${THUMB_WIDTH} ${THUMB_HEIGHT}`} preserveAspectRatio="none">
+        <path d={d} />
+      </svg>
+    </div>
+  );
 }
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -279,9 +323,10 @@ function TripListPageContent() {
                     <div key={trip.id} className={`${styles.trip} ${styles.tripRow}`}>
                       <Link href={`/trips/${trip.id}`} className={styles.tripLink}>
                         <div className={styles.tripHead}>
-                          <div className={styles.tripName}>Trip</div>
+                          <div className={styles.tripName}>{tripName(trip)}</div>
                           <div className={styles.tripDates}>{formatClosed(trip)}</div>
                         </div>
+                        <RouteThumbnail points={trip.routePoints} />
                       </Link>
                       <button
                         type="button"

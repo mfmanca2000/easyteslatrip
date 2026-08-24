@@ -4,6 +4,8 @@ import { NextRequest } from "next/server";
 const listTrips = vi.fn();
 const startTrip = vi.fn();
 const pollTripOnce = vi.fn();
+const listDriveSegmentsByTripIds = vi.fn();
+const getRouteLogsByTripIds = vi.fn();
 
 class FakeTripAlreadyActiveError extends Error {}
 
@@ -12,6 +14,12 @@ vi.mock("@/lib/models/trip", () => ({
   startTrip: (...args: unknown[]) => startTrip(...args),
   TripAlreadyActiveError: FakeTripAlreadyActiveError,
 }));
+vi.mock("@/lib/models/drive-segment", () => ({
+  listDriveSegmentsByTripIds: (...args: unknown[]) => listDriveSegmentsByTripIds(...args),
+}));
+vi.mock("@/lib/models/route-log", () => ({
+  getRouteLogsByTripIds: (...args: unknown[]) => getRouteLogsByTripIds(...args),
+}));
 vi.mock("@/lib/domain/poll-trip", () => ({
   pollTripOnce: (...args: unknown[]) => pollTripOnce(...args),
 }));
@@ -19,8 +27,13 @@ vi.mock("@/lib/domain/poll-trip", () => ({
 const VEHICLE_ID = "507f1f77bcf86cd799439011";
 
 describe("GET /api/trips", () => {
+  beforeEach(() => {
+    listDriveSegmentsByTripIds.mockReset().mockResolvedValue([]);
+    getRouteLogsByTripIds.mockReset().mockResolvedValue({});
+  });
+
   it("returns trips for a vehicle", async () => {
-    listTrips.mockResolvedValue([{ id: "trip1" }]);
+    listTrips.mockResolvedValue([{ id: "trip1", endedAt: null }]);
     const { GET } = await import("./route");
     const request = new NextRequest(`http://localhost/api/trips?vehicleId=${VEHICLE_ID}`);
 
