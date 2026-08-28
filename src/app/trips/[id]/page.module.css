@@ -81,6 +81,31 @@
   flex: none;
 }
 
+.pollButton {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pollButton:hover {
+  color: var(--accent2);
+  border-color: var(--accent2);
+}
+
+.pollButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .deleteButton {
   flex: none;
   width: 32px;

@@ -360,6 +360,8 @@ export default function TripDetailPage() {
   const [editingLegId, setEditingLegId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [polling, setPolling] = useState(false);
+  const [pollError, setPollError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -443,6 +445,20 @@ export default function TripDetailPage() {
     setEditingLegId(null);
   }
 
+  async function handleManualPoll() {
+    setPolling(true);
+    setPollError(null);
+    try {
+      await fetchJson(`/api/trips/${params.id}/poll`, { method: "POST" });
+      const body = await fetchJson<TripDetail>(`/api/trips/${params.id}`);
+      setDetail(body);
+    } catch (err) {
+      setPollError(err instanceof Error ? err.message : "Failed to poll vehicle");
+    } finally {
+      setPolling(false);
+    }
+  }
+
   async function handleDelete() {
     if (!window.confirm("Delete this trip? This cannot be undone.")) return;
     setDeleting(true);
@@ -487,6 +503,18 @@ export default function TripDetailPage() {
           <div className={styles.titleSub}>{formatDateRange(trip)}</div>
         </div>
         {vehicle && <div className={styles.vehTag}>🚗 {vehicle.name}</div>}
+        {trip.endedAt === null && (
+          <button
+            type="button"
+            className={styles.pollButton}
+            disabled={polling}
+            onClick={handleManualPoll}
+            aria-label="Poll vehicle now"
+            title="Poll vehicle now"
+          >
+            {polling ? "…" : "🔄"}
+          </button>
+        )}
         <button
           type="button"
           className={styles.deleteButton}
@@ -501,6 +529,7 @@ export default function TripDetailPage() {
 
       <div className={styles.container}>
         {deleteError && <p className={styles.error}>{deleteError}</p>}
+        {pollError && <p className={styles.error}>{pollError}</p>}
         <TripMap routeLog={detail.routeLog} pins={mapPins} />
 
         <h2 className={styles.sectiontitle}>Battery over trip</h2>
