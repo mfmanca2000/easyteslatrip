@@ -31,7 +31,10 @@ export async function pollTripOnce(tripId: string, vehicleId: string): Promise<v
     console.error("syncTripDerivedData failed", error);
   }
 
-  if (snapshot.shiftState === "P") {
+  // A charging stop (e.g. a supercharger mid-trip) can sit in P well past
+  // AUTO_STOP_GRACE_MS without the trip being over, so skip the auto-stop
+  // check entirely while actively charging.
+  if (snapshot.shiftState === "P" && !snapshot.charging) {
     await maybeAutoStopTrip(tripId, vehicleId);
   }
 }

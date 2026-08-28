@@ -184,6 +184,17 @@ describe("pollTripOnce auto-stop on sustained P", () => {
     expect(stopTrip).not.toHaveBeenCalled();
   });
 
+  it("does not check for auto-stop while the vehicle is charging in P", async () => {
+    fetchVehicleSnapshot.mockResolvedValue({ ...parkedSnapshot, charging: true });
+    listDriveSegmentsByTrip.mockResolvedValue(segmentEndedMinutesAgo(30));
+
+    const { pollTripOnce } = await import("./poll-trip");
+    await pollTripOnce(TRIP_ID, VEHICLE_ID);
+
+    expect(listDriveSegmentsByTrip).not.toHaveBeenCalled();
+    expect(stopTrip).not.toHaveBeenCalled();
+  });
+
   it("does not double-stop when a concurrent manual stop already ended the trip", async () => {
     listDriveSegmentsByTrip.mockResolvedValue(segmentEndedMinutesAgo(30));
     stopTrip.mockResolvedValue(null);
