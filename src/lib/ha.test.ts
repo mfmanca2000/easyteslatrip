@@ -175,3 +175,95 @@ describe("findMissedDrive", () => {
     expect(result!.end.snapshot).toMatchObject({ shiftState: "D", odometer: 15235, latitude: 44.6 });
   });
 });
+
+describe("findOngoingDriveStart", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  function historyResponse(points: { state: string; last_changed: string; attributes?: Record<string, unknown> }[]) {
+    return { ok: true, json: async () => [points] };
+  }
+
+  it("returns null when the D run already spans the whole lookback window", async () => {
+    vi.stubEnv("HA_BASE_URL", "https://ha.example.com");
+    vi.stubEnv("HA_LONG_LIVED_TOKEN", "test-token");
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("shift_state")) {
+        // last_changed at/before `since` means the window doesn't cover
+        // when this D run actually started.
+        return historyResponse([{ state: "D", last_changed: "2026-08-24T09:55:00Z" }]);
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { findOngoingDriveStart } = await import("./ha");
+    const result = await findOngoingDriveStart("electra", new Date("2026-08-24T09:55:00Z"));
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null when the latest shift_state sample isn't D", async () => {
+    vi.stubEnv("HA_BASE_URL", "https://ha.example.com");
+    vi.stubEnv("HA_LONG_LIVED_TOKEN", "test-token");
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("shift_state")) {
+        return historyResponse([
+          { state: "D", last_changed: "2026-08-24T10:00:00Z" },
+          { state: "P", last_changed: "2026-08-24T10:03:00Z" },
+        ]);
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { findOngoingDriveStart } = await import("./ha");
+    const result = await findOngoingDriveStart("electra", new Date("2026-08-24T09:55:00Z"));
+
+    expect(result).toBeNull();
+  });
+
+  it("reconstructs the reading from when the current D run began", async () => {
+    vi.stubEnv("HA_BASE_URL", "https://ha.example.com");
+    vi.stubEnv("HA_LONG_LIVED_TOKEN", "test-token");
+
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("shift_state")) {
+        return historyResponse([
+          { state: "P", last_changed: "2026-08-24T09:59:00Z" },
+          { state: "D", last_changed: "2026-08-24T10:00:00Z" },
+        ]);
+      }
+      if (url.includes("_battery")) {
+        return historyResponse([{ state: "80", last_changed: "2026-08-24T09:59:00Z" }]);
+      }
+      if (url.includes("_charging")) return historyResponse([{ state: "off", last_changed: "2026-08-24T09:59:00Z" }]);
+      if (url.includes("_energy_added")) return historyResponse([{ state: "0", last_changed: "2026-08-24T09:59:00Z" }]);
+      if (url.includes("_charger_power")) return historyResponse([{ state: "0", last_changed: "2026-08-24T09:59:00Z" }]);
+      if (url.includes("_charger")) {
+        return historyResponse([
+          { state: "off", last_changed: "2026-08-24T09:59:00Z", attributes: { charging_state: "Disconnected" } },
+        ]);
+      }
+      if (url.includes("_odometer")) {
+        return historyResponse([{ state: "15230", last_changed: "2026-08-24T09:59:00Z" }]);
+      }
+      if (url.includes("location_tracker")) {
+        return historyResponse([
+          { state: "home", last_changed: "2026-08-24T09:59:00Z", attributes: { latitude: 44.5, longitude: 11.3 } },
+        ]);
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { findOngoingDriveStart } = await import("./ha");
+    const result = await findOngoingDriveStart("electra", new Date("2026-08-24T09:55:00Z"));
+
+    expect(result).not.toBeNull();
+    expect(result!.at).toEqual(new Date("2026-08-24T10:00:00Z"));
+    expect(result!.snapshot).toMatchObject({ shiftState: "D", odometer: 15230, latitude: 44.5 });
+  });
+});
