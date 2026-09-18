@@ -2,9 +2,10 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getAnyActiveTrip, startTrip, TripAlreadyActiveError } from "@/lib/models/trip";
 import { listVehicles } from "@/lib/models/vehicle";
-import { fetchVehicleSnapshot, findMissedDrive } from "@/lib/ha";
+import { fetchVehicleSnapshot, findMissedDrive, findOngoingDriveStart } from "@/lib/ha";
 import { pollTripOnce } from "@/lib/domain/poll-trip";
 import { backfillMissedDrive } from "@/lib/domain/backfill-missed-drive";
+import { backfillOngoingDriveStart } from "@/lib/domain/backfill-ongoing-drive-start";
 
 // Covers the ~5-minute UptimeRobot baseline cadence plus jitter margin —
 // see findMissedDrive in ha.ts for why this lookback exists.
@@ -42,26 +43,36 @@ async function handlePollTrigger(request: Request): Promise<NextResponse> {
 
 // No trip is active for any vehicle, so check each vehicle's HA state for a
 // drive start (shift_state === "D") and auto-start a trip for it — a single
-// live sample is enough. If it's not currently "D", also check HA's
-// history for a drive that started and fully ended within the lookback
-// window (findMissedDrive) — otherwise a trip shorter than the poll gap
-// would leave neither sample ever seeing "D" and lose the drive's data
-// entirely. A stray D-then-back-to-P without moving just leaves an idle
-// trip the user closes manually (cheap); missing a real drive silently
-// loses that drive's data entirely (expensive), so the asymmetry favors
-// triggering eagerly either way.
+// live sample is enough. When it is "D", also check HA's history for when
+// the current D run actually began (findOngoingDriveStart) and backfill the
+// trip's start from there instead of the live sample — otherwise the trip
+// would start wherever the vehicle happened to be by the time a poll caught
+// it, up to one poll gap into the drive already. If the live sample isn't
+// "D", instead check HA's history for a drive that started and fully ended
+// within the lookback window (findMissedDrive) — otherwise a trip shorter
+// than the poll gap would leave neither sample ever seeing "D" and lose the
+// drive's data entirely. A stray D-then-back-to-P without moving just
+// leaves an idle trip the user closes manually (cheap); missing a real
+// drive silently loses that drive's data entirely (expensive), so the
+// asymmetry favors triggering eagerly either way.
 async function tryAutoStartTrips(): Promise<void> {
   const vehicles = await listVehicles();
   for (const vehicle of vehicles) {
     try {
       const snapshot = await fetchVehicleSnapshot(vehicle.entityPrefix);
+      const since = new Date(Date.now() - MISSED_DRIVE_LOOKBACK_MS);
+
       if (snapshot.shiftState === "D") {
         const trip = await startTrip(vehicle.id);
-        await pollTripOnce(trip.id, vehicle.id);
+        const ongoingStart = await findOngoingDriveStart(vehicle.entityPrefix, since);
+        if (ongoingStart) {
+          await backfillOngoingDriveStart(trip.id, vehicle.id, ongoingStart);
+        } else {
+          await pollTripOnce(trip.id, vehicle.id);
+        }
         continue;
       }
 
-      const since = new Date(Date.now() - MISSED_DRIVE_LOOKBACK_MS);
       const missedDrive = await findMissedDrive(vehicle.entityPrefix, since);
       if (!missedDrive) continue;
 

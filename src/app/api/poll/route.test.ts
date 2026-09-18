@@ -5,8 +5,10 @@ const startTrip = vi.fn();
 const listVehicles = vi.fn();
 const fetchVehicleSnapshot = vi.fn();
 const findMissedDrive = vi.fn();
+const findOngoingDriveStart = vi.fn();
 const pollTripOnce = vi.fn();
 const backfillMissedDrive = vi.fn();
+const backfillOngoingDriveStart = vi.fn();
 
 class TripAlreadyActiveError extends Error {}
 
@@ -21,12 +23,16 @@ vi.mock("@/lib/models/vehicle", () => ({
 vi.mock("@/lib/ha", () => ({
   fetchVehicleSnapshot: (...args: unknown[]) => fetchVehicleSnapshot(...args),
   findMissedDrive: (...args: unknown[]) => findMissedDrive(...args),
+  findOngoingDriveStart: (...args: unknown[]) => findOngoingDriveStart(...args),
 }));
 vi.mock("@/lib/domain/poll-trip", () => ({
   pollTripOnce: (...args: unknown[]) => pollTripOnce(...args),
 }));
 vi.mock("@/lib/domain/backfill-missed-drive", () => ({
   backfillMissedDrive: (...args: unknown[]) => backfillMissedDrive(...args),
+}));
+vi.mock("@/lib/domain/backfill-ongoing-drive-start", () => ({
+  backfillOngoingDriveStart: (...args: unknown[]) => backfillOngoingDriveStart(...args),
 }));
 
 const TRIP_ID = "507f1f77bcf86cd799439099";
@@ -43,8 +49,10 @@ describe("GET/HEAD /api/poll", () => {
     listVehicles.mockReset().mockResolvedValue([]);
     fetchVehicleSnapshot.mockReset();
     findMissedDrive.mockReset().mockResolvedValue(null);
+    findOngoingDriveStart.mockReset().mockResolvedValue(null);
     pollTripOnce.mockReset();
     backfillMissedDrive.mockReset();
+    backfillOngoingDriveStart.mockReset();
     vi.stubEnv("POLL_TRIGGER_SECRET", "shh");
   });
 
@@ -144,7 +152,7 @@ describe("GET/HEAD /api/poll", () => {
     expect(pollTripOnce).not.toHaveBeenCalled();
   });
 
-  it("auto-starts a trip when an idle vehicle is found in Drive", async () => {
+  it("auto-starts a trip when an idle vehicle is found in Drive, with no earlier D run in history", async () => {
     getAnyActiveTrip.mockResolvedValue(null);
     listVehicles.mockResolvedValue([
       { id: VEHICLE_ID, name: "Electra", entityPrefix: "electra", createdAt: "c" },
@@ -169,7 +177,40 @@ describe("GET/HEAD /api/poll", () => {
 
     expect(response.status).toBe(200);
     expect(startTrip).toHaveBeenCalledWith(VEHICLE_ID);
+    expect(findOngoingDriveStart).toHaveBeenCalledWith("electra", expect.any(Date));
+    expect(backfillOngoingDriveStart).not.toHaveBeenCalled();
     expect(pollTripOnce).toHaveBeenCalledWith(TRIP_ID, VEHICLE_ID);
+  });
+
+  it("backfills the trip's start when HA history shows the D run began earlier than the live sample", async () => {
+    getAnyActiveTrip.mockResolvedValue(null);
+    listVehicles.mockResolvedValue([
+      { id: VEHICLE_ID, name: "Electra", entityPrefix: "electra", createdAt: "c" },
+    ]);
+    fetchVehicleSnapshot.mockResolvedValue({
+      batteryLevel: 80,
+      shiftState: "D",
+      charging: false,
+      pluggedIn: false,
+      chargingState: "Disconnected",
+      energyAdded: 0,
+      odometer: 15235,
+      chargerPower: 0,
+      latitude: 44.6,
+      longitude: 11.4,
+    });
+    startTrip.mockResolvedValue({ id: TRIP_ID, vehicleId: VEHICLE_ID, startedAt: "s", endedAt: null });
+    const ongoingStart = { at: new Date("2026-08-24T10:00:00Z"), snapshot: { odometer: 15230, shiftState: "D" } };
+    findOngoingDriveStart.mockResolvedValue(ongoingStart);
+    backfillOngoingDriveStart.mockResolvedValue(undefined);
+
+    const { GET } = await import("./route");
+    const response = await GET(request({ authorization: "Bearer shh" }));
+
+    expect(response.status).toBe(200);
+    expect(startTrip).toHaveBeenCalledWith(VEHICLE_ID);
+    expect(backfillOngoingDriveStart).toHaveBeenCalledWith(TRIP_ID, VEHICLE_ID, ongoingStart);
+    expect(pollTripOnce).not.toHaveBeenCalled();
   });
 
   it("swallows a TripAlreadyActiveError race and keeps checking other vehicles", async () => {
